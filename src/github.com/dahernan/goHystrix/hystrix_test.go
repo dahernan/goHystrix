@@ -8,15 +8,17 @@ import (
 )
 
 type HystrixStringCommand struct {
-	state string
+	state         string
+	fallbackState string
 	*HystrixExecutor
 }
 
-func NewHystrixStringCommand(state string) *HystrixStringCommand {
+func NewHystrixStringCommand(state string, fallbackState string) *HystrixStringCommand {
 	command := &HystrixStringCommand{}
 	executor := NewHystrixExecutor(command)
-	command.state = state
 	command.HystrixExecutor = executor
+	command.state = state
+	command.fallbackState = fallbackState
 	return command
 }
 
@@ -33,12 +35,53 @@ func (h *HystrixStringCommand) Run() (interface{}, error) {
 	return "hello hystrix world", nil
 }
 
+func (h *HystrixStringCommand) Fallback() (interface{}, error) {
+	if h.fallbackState == "fallbackError" {
+		return nil, fmt.Errorf("ERROR: error doing fallback")
+	}
+	return "FALLBACK", nil
+
+}
+
 func TestRunsOk(t *testing.T) {
 
-	Convey("Hytrix command runs properly", t, func() {
-		x := NewHystrixStringCommand("ok")
+	Convey("Hytrix command Run returns a string", t, func() {
+		x := NewHystrixStringCommand("ok", "fallbackOk")
 
 		Convey("When Run is executed", func() {
+
+			result, err := x.Run()
+
+			Convey("The result should be the string value", func() {
+				So(result, ShouldEqual, "hello hystrix world")
+			})
+
+			Convey("There is no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+
+	Convey("Hytrix command Run returns an error", t, func() {
+		x := NewHystrixStringCommand("error", "fallbackOk")
+
+		Convey("When Run is executed", func() {
+			result, err := x.Run()
+
+			Convey("The result should be Nil", func() {
+				So(result, ShouldBeNil)
+			})
+
+			Convey("There is a expected error", func() {
+				So(err.Error(), ShouldEqual, "ERROR: this method is mend to fail")
+			})
+		})
+	})
+
+	Convey("Hytrix command Execute runs properly", t, func() {
+		x := NewHystrixStringCommand("ok", "fallbackOk")
+
+		Convey("When Execute is called", func() {
 
 			result, err := x.Execute()
 
@@ -52,43 +95,42 @@ func TestRunsOk(t *testing.T) {
 		})
 	})
 
-	Convey("Hytrix command returns an error", t, func() {
-		x := NewHystrixStringCommand("error")
+	Convey("Hytrix command Execute uses the Fallback", t, func() {
+		x := NewHystrixStringCommand("error", "fallbackOk")
 
-		Convey("When Run is executed", func() {
+		Convey("When Execute is called", func() {
 			result, err := x.Execute()
 
-			Convey("The result should be Nil", func() {
-				So(result, ShouldBeNil)
+			Convey("The result should be the one from the fallback function", func() {
+				So(result, ShouldEqual, "FALLBACK")
 			})
 
-			Convey("There is an error", func() {
-				So(err, ShouldNotBeNil)
+			Convey("There is no error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})
 
-	Convey("Hytrix command returns error due to timeout", t, func() {
-		x := NewHystrixStringCommand("timeout")
+	Convey("Hytrix command returns the fallback due to timeout", t, func() {
+		x := NewHystrixStringCommand("timeout", "fallbackOk")
 
-		Convey("When Run is executed", func() {
+		Convey("When Execute is called", func() {
 			result, err := x.Execute()
 
-			Convey("The result should be Nil", func() {
-				So(result, ShouldBeNil)
+			Convey("The result should be FALLBACK", func() {
+				So(result, ShouldEqual, "FALLBACK")
 			})
 
-			Convey("There is a timeout error", func() {
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "ERROR: Timeout!!")
+			Convey("There is no error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})
 
 	Convey("Hytrix command run async and returns ok", t, func() {
-		x := NewHystrixStringCommand("ok")
+		x := NewHystrixStringCommand("ok", "fallbackOk")
 
-		Convey("When Queue is executed", func() {
+		Convey("When Queue is called", func() {
 			resultChan, errorChan := x.Queue()
 			var err error
 			var result interface{}
@@ -109,10 +151,10 @@ func TestRunsOk(t *testing.T) {
 		})
 	})
 
-	Convey("Hytrix command run async and returns error", t, func() {
-		x := NewHystrixStringCommand("error")
+	Convey("Hytrix command run async and returns the fallback", t, func() {
+		x := NewHystrixStringCommand("error", "fallbackOk")
 
-		Convey("When Queue is executed", func() {
+		Convey("When Queue is called", func() {
 			resultChan, errorChan := x.Queue()
 			var err error
 			var result interface{}
@@ -123,17 +165,17 @@ func TestRunsOk(t *testing.T) {
 				result = nil
 			}
 
-			Convey("The result should be the string value", func() {
-				So(result, ShouldBeNil)
+			Convey("The result should be the fallback", func() {
+				So(result, ShouldEqual, "FALLBACK")
 			})
-			Convey("There is an error", func() {
-				So(err, ShouldNotBeNil)
+			Convey("There is no error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})
 
-	Convey("Hytrix command run async and returns a timeout error", t, func() {
-		x := NewHystrixStringCommand("timeout")
+	Convey("Hytrix command run async and returns the fallback due a timeout error", t, func() {
+		x := NewHystrixStringCommand("timeout", "fallbackOk")
 
 		Convey("When Queue is executed", func() {
 			resultChan, errorChan := x.Queue()
@@ -146,12 +188,34 @@ func TestRunsOk(t *testing.T) {
 				result = nil
 			}
 
-			Convey("The result should be the string value", func() {
+			Convey("The result should be the fallback string value", func() {
+				So(result, ShouldEqual, "FALLBACK")
+			})
+			Convey("There is no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+
+	Convey("Hytrix command run async and returns the fallback error", t, func() {
+		x := NewHystrixStringCommand("error", "fallbackError")
+
+		Convey("When Queue is executed", func() {
+			resultChan, errorChan := x.Queue()
+			var err error
+			var result interface{}
+			select {
+			case result = <-resultChan:
+				err = nil
+			case err = <-errorChan:
+				result = nil
+			}
+
+			Convey("The result should be the nil", func() {
 				So(result, ShouldBeNil)
 			})
-			Convey("There is an timeout error", func() {
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "ERROR: Timeout!!")
+			Convey("There is an error from the fallback", func() {
+				So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
 			})
 		})
 	})

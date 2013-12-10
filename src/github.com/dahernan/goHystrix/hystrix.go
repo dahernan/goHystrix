@@ -7,6 +7,7 @@ import (
 
 type HystrixCommand interface {
 	Run() (interface{}, error)
+	Fallback() (interface{}, error)
 }
 
 type HystrixExecutor struct {
@@ -17,7 +18,7 @@ func NewHystrixExecutor(command HystrixCommand) *HystrixExecutor {
 	return &HystrixExecutor{command}
 }
 
-func (h *HystrixExecutor) Execute() (interface{}, error) {
+func (h *HystrixExecutor) doExecute() (interface{}, error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
 	go func() {
@@ -32,16 +33,21 @@ func (h *HystrixExecutor) Execute() (interface{}, error) {
 
 	select {
 	case value := <-valueChan:
-		fmt.Printf("Recieve a value '%s'\n", value)
 		return value, nil
 	case err := <-errorChan:
-		fmt.Printf("Recieve a error '%s'\n", err)
 		return nil, err
 	case <-time.After(2 * time.Second):
-		fmt.Printf("Recieve a timeout\n")
 		return nil, fmt.Errorf("ERROR: Timeout!!")
 	}
 
+}
+
+func (h *HystrixExecutor) Execute() (interface{}, error) {
+	value, err := h.doExecute()
+	if err != nil {
+		return h.command.Fallback()
+	}
+	return value, err
 }
 
 func (h *HystrixExecutor) Queue() (chan interface{}, chan error) {
