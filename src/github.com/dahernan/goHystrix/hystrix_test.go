@@ -2,6 +2,7 @@ package goHystrix
 
 import (
 	"fmt"
+	"github.com/dahernan/goHystrix/metrics"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -20,6 +21,14 @@ func NewHystrixStringCommand(state string, fallbackState string) *HystrixStringC
 	command.state = state
 	command.fallbackState = fallbackState
 	return command
+}
+
+func (h *HystrixStringCommand) Name() string {
+	return "testCommand"
+}
+
+func (h *HystrixStringCommand) Group() string {
+	return "testGroup"
 }
 
 func (h *HystrixStringCommand) Run() (interface{}, error) {
@@ -218,6 +227,28 @@ func TestRunsOk(t *testing.T) {
 				So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
 			})
 		})
+	})
+
+	Convey("Hytrix command keep the metrics", t, func() {
+		metrics.MetricsReset()
+		x := NewHystrixStringCommand("ok", "fallbackok")
+		y := NewHystrixStringCommand("error", "fallbackok")
+
+		Convey("When Execute is called 2 times the counters are updated", func() {
+			x.Execute()
+			x.Execute()
+			y.Execute()
+			y.Execute()
+			y.Execute()
+
+			Convey("The success counter is correct", func() {
+				So(x.Success(), ShouldEqual, 2)
+			})
+			Convey("The failures counter is correct", func() {
+				So(x.Failures(), ShouldEqual, 3)
+			})
+		})
+
 	})
 
 }
