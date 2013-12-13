@@ -10,7 +10,7 @@ var (
 
 type MetricsHolder struct {
 	metrics map[string]map[string]*Metric
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 }
 
 type Metric struct {
@@ -49,8 +49,8 @@ func NewMetric(name string, group string) *Metric {
 }
 
 func (holder *MetricsHolder) Get(group string, key string) (*Metric, bool) {
-	holder.mutex.Lock()
-	defer holder.mutex.Unlock()
+	holder.mutex.RLock()
+	defer holder.mutex.RUnlock()
 	metricValues, ok := holder.metrics[group]
 	if !ok {
 		return nil, ok
