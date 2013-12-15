@@ -27,12 +27,13 @@ func (h *HystrixExecutor) doExecute() (interface{}, error) {
 	go func() {
 		value, err := h.command.Run()
 		if value != nil {
-			h.metric().Success.Inc(1)
 			valueChan <- value
 		}
 		if err != nil {
 			h.metric().Failures.Inc(1)
 			errorChan <- err
+		} else {
+			h.metric().Success.Inc(1)
 		}
 	}()
 
@@ -42,14 +43,25 @@ func (h *HystrixExecutor) doExecute() (interface{}, error) {
 	case err := <-errorChan:
 		return nil, err
 	case <-time.After(2 * time.Second):
+		h.metric().Timeouts.Inc(1)
 		return nil, fmt.Errorf("ERROR: Timeout!!")
 	}
 
 }
+
+func (h *HystrixExecutor) doFallback() (interface{}, error) {
+	h.metric().Fallback.Inc(1)
+	value, err := h.command.Fallback()
+	if err != nil {
+		h.metric().FallbackErrors.Inc(1)
+	}
+	return value, err
+}
+
 func (h *HystrixExecutor) metric() *metrics.Metric {
 	metric, ok := metrics.Metrics().Get(h.command.Group(), h.command.Name())
 	if !ok {
-		return metrics.NewMetric(h.command.Name(), h.command.Group())
+		return metrics.NewMetric(h.command.Group(), h.command.Name())
 	}
 	return metric
 }
@@ -58,7 +70,7 @@ func (h *HystrixExecutor) Execute() (interface{}, error) {
 	start := time.Now()
 	value, err := h.doExecute()
 	if err != nil {
-		return h.command.Fallback()
+		return h.doFallback()
 	}
 	elapsed := time.Since(start)
 	fmt.Printf("It took %s\n", elapsed)

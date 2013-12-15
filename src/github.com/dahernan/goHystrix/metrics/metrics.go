@@ -14,12 +14,13 @@ type MetricsHolder struct {
 }
 
 type Metric struct {
-	name     string
-	group    string
-	Failures Counter
-	Success  Counter
-	Failback Counter
-	Timeouts Counter
+	name           string
+	group          string
+	Failures       Counter
+	Success        Counter
+	Fallback       Counter
+	FallbackErrors Counter
+	Timeouts       Counter
 }
 
 func NewMetricsHolder() *MetricsHolder {
@@ -33,14 +34,15 @@ func MetricsReset() {
 	metrics = NewMetricsHolder()
 }
 
-func NewMetric(name string, group string) *Metric {
+func NewMetric(group string, name string) *Metric {
 	m := &Metric{}
 	m.name = name
 	m.group = group
 
 	m.Success = NewCounter()
 	m.Failures = NewCounter()
-	m.Failback = NewCounter()
+	m.Fallback = NewCounter()
+	m.FallbackErrors = NewCounter()
 	m.Timeouts = NewCounter()
 
 	Metrics().Set(group, name, m)
@@ -48,7 +50,7 @@ func NewMetric(name string, group string) *Metric {
 
 }
 
-func (holder *MetricsHolder) Get(group string, key string) (*Metric, bool) {
+func (holder *MetricsHolder) Get(group string, name string) (*Metric, bool) {
 	holder.mutex.RLock()
 	defer holder.mutex.RUnlock()
 	metricValues, ok := holder.metrics[group]
@@ -56,11 +58,11 @@ func (holder *MetricsHolder) Get(group string, key string) (*Metric, bool) {
 		return nil, ok
 	}
 
-	value, ok := metricValues[key]
+	value, ok := metricValues[name]
 	return value, ok
 }
 
-func (holder *MetricsHolder) Set(group string, key string, value *Metric) {
+func (holder *MetricsHolder) Set(group string, name string, value *Metric) {
 	holder.mutex.Lock()
 	defer holder.mutex.Unlock()
 
@@ -70,6 +72,6 @@ func (holder *MetricsHolder) Set(group string, key string, value *Metric) {
 		holder.metrics[group] = metricValues
 	}
 
-	metricValues[key] = value
+	metricValues[name] = value
 
 }

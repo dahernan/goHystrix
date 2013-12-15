@@ -66,7 +66,7 @@ func TestMetric(t *testing.T) {
 	Convey("New Metrics are register in the metrics holder", t, func() {
 		metrics := Metrics()
 		Convey("When new metric is created", func() {
-			metric := NewMetric("test", "group1")
+			metric := NewMetric("group1", "test")
 			Convey("The metric holder should contain that metric", func() {
 				value, ok := metrics.Get("group1", "test")
 				So(value, ShouldEqual, metric)
