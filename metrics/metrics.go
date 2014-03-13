@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync"
+	"time"
 )
 
 var (
@@ -14,13 +15,60 @@ type MetricsHolder struct {
 }
 
 type Metric struct {
-	name           string
-	group          string
-	Failures       Counter
-	Success        Counter
-	Fallback       Counter
-	FallbackErrors Counter
-	Timeouts       Counter
+	name  string
+	group string
+
+	failures       Counter
+	success        Counter
+	fallback       Counter
+	fallbackErrors Counter
+	timeouts       Counter
+
+	consecutiveFailures Counter
+	consecutiveSuccess  Counter
+	consecutiveTimeouts Counter
+
+	lastFailure time.Time
+	lastSuccess time.Time
+	lastTimeout time.Time
+}
+
+func (m *Metric) Success() {
+	m.success.Inc(1)
+	m.consecutiveSuccess.Inc(1)
+	m.consecutiveFailures.Clear()
+	m.lastSuccess = time.Now()
+}
+
+func (m *Metric) Fail() {
+	m.failures.Inc(1)
+	m.consecutiveSuccess.Clear()
+	m.consecutiveFailures.Inc(1)
+	m.lastFailure = time.Now()
+}
+
+func (m *Metric) Fallback() {
+	m.fallback.Inc(1)
+}
+
+func (m *Metric) FallbackError() {
+	m.fallbackErrors.Inc(1)
+}
+
+func (m *Metric) Timeout() {
+	m.timeouts.Inc(1)
+}
+
+func (m *Metric) FailuresCount() int64 {
+	return m.failures.Count()
+}
+
+func (m *Metric) SuccessCount() int64 {
+	return m.success.Count()
+}
+
+func (m *Metric) TimeoutsCount() int64 {
+	return m.timeouts.Count()
 }
 
 func NewMetricsHolder() *MetricsHolder {
@@ -39,11 +87,15 @@ func NewMetric(group string, name string) *Metric {
 	m.name = name
 	m.group = group
 
-	m.Success = NewCounter()
-	m.Failures = NewCounter()
-	m.Fallback = NewCounter()
-	m.FallbackErrors = NewCounter()
-	m.Timeouts = NewCounter()
+	m.success = NewCounter()
+	m.failures = NewCounter()
+	m.fallback = NewCounter()
+	m.fallbackErrors = NewCounter()
+	m.timeouts = NewCounter()
+
+	m.consecutiveFailures = NewCounter()
+	m.consecutiveSuccess = NewCounter()
+	m.consecutiveTimeouts = NewCounter()
 
 	Metrics().Set(group, name, m)
 	return m

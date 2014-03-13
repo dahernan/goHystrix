@@ -6,22 +6,28 @@ import (
 	"time"
 )
 
-type HystrixCommand interface {
+type Command interface {
 	Run() (interface{}, error)
 	Fallback() (interface{}, error)
+	Timeout() time.Duration
 	Name() string
 	Group() string
 }
 
-type HystrixExecutor struct {
-	command HystrixCommand
+type Executor struct {
+	command Command
+	metric  *metrics.Metric
 }
 
-func NewHystrixExecutor(command HystrixCommand) *HystrixExecutor {
-	return &HystrixExecutor{command}
+func NewExecutor(command Command) *Executor {
+	metric, ok := metrics.Metrics().Get(command.Group(), command.Name())
+	if !ok {
+		metric = metrics.NewMetric(command.Group(), command.Name())
+	}
+	return &Executor{command, metric}
 }
 
-func (h *HystrixExecutor) doExecute() (interface{}, error) {
+func (h *Executor) doExecute() (interface{}, error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
 	go func() {
@@ -30,10 +36,10 @@ func (h *HystrixExecutor) doExecute() (interface{}, error) {
 			valueChan <- value
 		}
 		if err != nil {
-			h.metric().Failures.Inc(1)
+			h.Metric().Fail()
 			errorChan <- err
 		} else {
-			h.metric().Success.Inc(1)
+			h.Metric().Success()
 		}
 	}()
 
@@ -42,31 +48,23 @@ func (h *HystrixExecutor) doExecute() (interface{}, error) {
 		return value, nil
 	case err := <-errorChan:
 		return nil, err
-	case <-time.After(2 * time.Second):
-		h.metric().Timeouts.Inc(1)
+	case <-time.After(h.command.Timeout()):
+		h.Metric().Timeout()
 		return nil, fmt.Errorf("ERROR: Timeout!!")
 	}
 
 }
 
-func (h *HystrixExecutor) doFallback() (interface{}, error) {
-	h.metric().Fallback.Inc(1)
+func (h *Executor) doFallback() (interface{}, error) {
+	h.Metric().Fallback()
 	value, err := h.command.Fallback()
 	if err != nil {
-		h.metric().FallbackErrors.Inc(1)
+		h.Metric().FallbackError()
 	}
 	return value, err
 }
 
-func (h *HystrixExecutor) metric() *metrics.Metric {
-	metric, ok := metrics.Metrics().Get(h.command.Group(), h.command.Name())
-	if !ok {
-		return metrics.NewMetric(h.command.Group(), h.command.Name())
-	}
-	return metric
-}
-
-func (h *HystrixExecutor) Execute() (interface{}, error) {
+func (h *Executor) Execute() (interface{}, error) {
 	start := time.Now()
 	value, err := h.doExecute()
 	if err != nil {
@@ -77,7 +75,7 @@ func (h *HystrixExecutor) Execute() (interface{}, error) {
 	return value, err
 }
 
-func (h *HystrixExecutor) Queue() (chan interface{}, chan error) {
+func (h *Executor) Queue() (chan interface{}, chan error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
 
@@ -93,10 +91,14 @@ func (h *HystrixExecutor) Queue() (chan interface{}, chan error) {
 	return valueChan, errorChan
 }
 
-func (h *HystrixExecutor) Success() int64 {
-	return h.metric().Success.Count()
+func (h *Executor) Metric() *metrics.Metric {
+	return h.metric
 }
 
-func (h *HystrixExecutor) Failures() int64 {
-	return h.metric().Failures.Count()
+func (h *Executor) SuccessCount() int64 {
+	return h.Metric().SuccessCount()
+}
+
+func (h *Executor) FailuresCount() int64 {
+	return h.Metric().FailuresCount()
 }

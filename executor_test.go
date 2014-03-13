@@ -8,43 +8,48 @@ import (
 	"time"
 )
 
-type HystrixStringCommand struct {
+type StringCommand struct {
 	state         string
 	fallbackState string
-	*HystrixExecutor
+	*Executor
 }
 
-func NewHystrixStringCommand(state string, fallbackState string) *HystrixStringCommand {
-	command := &HystrixStringCommand{}
-	executor := NewHystrixExecutor(command)
-	command.HystrixExecutor = executor
+func NewStringCommand(state string, fallbackState string) *StringCommand {
+	var command *StringCommand
+	command = &StringCommand{}
+	executor := NewExecutor(command)
+	command.Executor = executor
 	command.state = state
 	command.fallbackState = fallbackState
 	return command
 }
 
-func (h *HystrixStringCommand) Name() string {
+func (h *StringCommand) Name() string {
 	return "testCommand"
 }
 
-func (h *HystrixStringCommand) Group() string {
+func (h *StringCommand) Group() string {
 	return "testGroup"
 }
 
-func (h *HystrixStringCommand) Run() (interface{}, error) {
+func (s *StringCommand) Timeout() time.Duration {
+	return 3 * time.Millisecond
+}
+
+func (h *StringCommand) Run() (interface{}, error) {
 	if h.state == "error" {
 		return nil, fmt.Errorf("ERROR: this method is mend to fail")
 	}
 
 	if h.state == "timeout" {
-		time.Sleep(3 * time.Second)
+		time.Sleep(4 * time.Millisecond)
 		return "time out!", nil
 	}
 
 	return "hello hystrix world", nil
 }
 
-func (h *HystrixStringCommand) Fallback() (interface{}, error) {
+func (h *StringCommand) Fallback() (interface{}, error) {
 	if h.fallbackState == "fallbackError" {
 		return nil, fmt.Errorf("ERROR: error doing fallback")
 	}
@@ -52,10 +57,10 @@ func (h *HystrixStringCommand) Fallback() (interface{}, error) {
 
 }
 
-func TestRunsOk(t *testing.T) {
+func TestRunString(t *testing.T) {
 
-	Convey("Hytrix command Run returns a string", t, func() {
-		x := NewHystrixStringCommand("ok", "fallbackOk")
+	Convey("Command Run returns a string", t, func() {
+		x := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Run is executed", func() {
 
@@ -70,9 +75,12 @@ func TestRunsOk(t *testing.T) {
 			})
 		})
 	})
+}
 
-	Convey("Hytrix command Run returns an error", t, func() {
-		x := NewHystrixStringCommand("error", "fallbackOk")
+func TestRunError(t *testing.T) {
+
+	Convey("Command Run returns an error", t, func() {
+		x := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Run is executed", func() {
 			result, err := x.Run()
@@ -86,9 +94,12 @@ func TestRunsOk(t *testing.T) {
 			})
 		})
 	})
+}
 
-	Convey("Hytrix command Execute runs properly", t, func() {
-		x := NewHystrixStringCommand("ok", "fallbackOk")
+func TestExecuteString(t *testing.T) {
+
+	Convey("Command Execute runs properly", t, func() {
+		x := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Execute is called", func() {
 
@@ -103,9 +114,12 @@ func TestRunsOk(t *testing.T) {
 			})
 		})
 	})
+}
 
-	Convey("Hytrix command Execute uses the Fallback", t, func() {
-		x := NewHystrixStringCommand("error", "fallbackOk")
+func TestFallback(t *testing.T) {
+
+	Convey("Command Execute uses the Fallback", t, func() {
+		x := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Execute is called", func() {
 			result, err := x.Execute()
@@ -119,9 +133,12 @@ func TestRunsOk(t *testing.T) {
 			})
 		})
 	})
+}
 
-	Convey("Hytrix command returns the fallback due to timeout", t, func() {
-		x := NewHystrixStringCommand("timeout", "fallbackOk")
+func TestExecuteTimeout(t *testing.T) {
+
+	Convey("Command returns the fallback due to timeout", t, func() {
+		x := NewStringCommand("timeout", "fallbackOk")
 
 		Convey("When Execute is called", func() {
 			result, err := x.Execute()
@@ -136,8 +153,10 @@ func TestRunsOk(t *testing.T) {
 		})
 	})
 
-	Convey("Hytrix command run async and returns ok", t, func() {
-		x := NewHystrixStringCommand("ok", "fallbackOk")
+}
+func TestAsync(t *testing.T) {
+	Convey("Command run async and returns ok", t, func() {
+		x := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Queue is called", func() {
 			resultChan, errorChan := x.Queue()
@@ -159,9 +178,12 @@ func TestRunsOk(t *testing.T) {
 
 		})
 	})
+}
 
-	Convey("Hytrix command run async and returns the fallback", t, func() {
-		x := NewHystrixStringCommand("error", "fallbackOk")
+func TestAsyncFallback(t *testing.T) {
+
+	Convey("Command run async and returns the fallback", t, func() {
+		x := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Queue is called", func() {
 			resultChan, errorChan := x.Queue()
@@ -182,9 +204,13 @@ func TestRunsOk(t *testing.T) {
 			})
 		})
 	})
+}
 
-	Convey("Hytrix command run async and returns the fallback due a timeout error", t, func() {
-		x := NewHystrixStringCommand("timeout", "fallbackOk")
+func TestAsyncTimeout(t *testing.T) {
+	Convey("Command run async and returns the fallback due a timeout error", t, func() {
+		metrics.MetricsReset()
+
+		x := NewStringCommand("timeout", "fallbackOk")
 
 		Convey("When Queue is executed", func() {
 			resultChan, errorChan := x.Queue()
@@ -197,17 +223,21 @@ func TestRunsOk(t *testing.T) {
 				result = nil
 			}
 
-			Convey("The result should be the fallback string value", func() {
+			Convey("The result should be the fallback string value and there is not error", func() {
 				So(result, ShouldEqual, "FALLBACK")
-			})
-			Convey("There is no error", func() {
+				So(x.Metric().TimeoutsCount(), ShouldEqual, 1)
 				So(err, ShouldBeNil)
+
 			})
 		})
 	})
 
-	Convey("Hytrix command run async and returns the fallback error", t, func() {
-		x := NewHystrixStringCommand("error", "fallbackError")
+}
+
+func TestAsyncFallbackError(t *testing.T) {
+
+	Convey("Command run async and returns the fallback error", t, func() {
+		x := NewStringCommand("error", "fallbackError")
 
 		Convey("When Queue is executed", func() {
 			resultChan, errorChan := x.Queue()
@@ -229,10 +259,13 @@ func TestRunsOk(t *testing.T) {
 		})
 	})
 
-	Convey("Hytrix command keep the metrics", t, func() {
+}
+
+func TestMetrics(t *testing.T) {
+	Convey("Command keep the metrics", t, func() {
 		metrics.MetricsReset()
-		x := NewHystrixStringCommand("ok", "fallbackok")
-		y := NewHystrixStringCommand("error", "fallbackok")
+		x := NewStringCommand("ok", "fallbackok")
+		y := NewStringCommand("error", "fallbackok")
 
 		Convey("When Execute is called 2 times the counters are updated", func() {
 			x.Execute()
@@ -241,14 +274,17 @@ func TestRunsOk(t *testing.T) {
 			y.Execute()
 			y.Execute()
 
-			Convey("The success counter is correct", func() {
-				So(x.Success(), ShouldEqual, 2)
+			Convey("The success and failures counters are correct", func() {
+				So(x.SuccessCount(), ShouldEqual, 2)
+				So(y.SuccessCount(), ShouldEqual, 2)
+				So(x.FailuresCount(), ShouldEqual, 3)
+				So(y.FailuresCount(), ShouldEqual, 3)
 			})
-			Convey("The failures counter is correct", func() {
-				So(x.Failures(), ShouldEqual, 3)
-			})
+			//Convey("The failures counter is correct", func() {
+			//	So(x.Failures(), ShouldEqual, 3)
+			//	So(y.Failures(), ShouldEqual, 3)
+			//})
 		})
 
 	})
-
 }
