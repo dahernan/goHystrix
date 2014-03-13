@@ -34,6 +34,7 @@ type Metric struct {
 }
 
 func (m *Metric) Success() {
+	// TODO: rethink !! is not concurrency safe
 	m.success.Inc(1)
 	m.consecutiveSuccess.Inc(1)
 	m.consecutiveFailures.Clear()

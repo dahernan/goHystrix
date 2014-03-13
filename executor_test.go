@@ -24,24 +24,24 @@ func NewStringCommand(state string, fallbackState string) *StringCommand {
 	return command
 }
 
-func (h *StringCommand) Name() string {
+func (c *StringCommand) Name() string {
 	return "testCommand"
 }
 
-func (h *StringCommand) Group() string {
+func (c *StringCommand) Group() string {
 	return "testGroup"
 }
 
-func (s *StringCommand) Timeout() time.Duration {
+func (c *StringCommand) Timeout() time.Duration {
 	return 3 * time.Millisecond
 }
 
-func (h *StringCommand) Run() (interface{}, error) {
-	if h.state == "error" {
+func (c *StringCommand) Run() (interface{}, error) {
+	if c.state == "error" {
 		return nil, fmt.Errorf("ERROR: this method is mend to fail")
 	}
 
-	if h.state == "timeout" {
+	if c.state == "timeout" {
 		time.Sleep(4 * time.Millisecond)
 		return "time out!", nil
 	}
@@ -49,8 +49,8 @@ func (h *StringCommand) Run() (interface{}, error) {
 	return "hello hystrix world", nil
 }
 
-func (h *StringCommand) Fallback() (interface{}, error) {
-	if h.fallbackState == "fallbackError" {
+func (c *StringCommand) Fallback() (interface{}, error) {
+	if c.fallbackState == "fallbackError" {
 		return nil, fmt.Errorf("ERROR: error doing fallback")
 	}
 	return "FALLBACK", nil
@@ -280,10 +280,7 @@ func TestMetrics(t *testing.T) {
 				So(x.FailuresCount(), ShouldEqual, 3)
 				So(y.FailuresCount(), ShouldEqual, 3)
 			})
-			//Convey("The failures counter is correct", func() {
-			//	So(x.Failures(), ShouldEqual, 3)
-			//	So(y.Failures(), ShouldEqual, 3)
-			//})
+
 		})
 
 	})

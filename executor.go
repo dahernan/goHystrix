@@ -17,6 +17,7 @@ type Command interface {
 type Executor struct {
 	command Command
 	metric  *metrics.Metric
+	circuit Circuit
 }
 
 func NewExecutor(command Command) *Executor {
@@ -24,22 +25,22 @@ func NewExecutor(command Command) *Executor {
 	if !ok {
 		metric = metrics.NewMetric(command.Group(), command.Name())
 	}
-	return &Executor{command, metric}
+	return &Executor{command, metric, NewCircuit(metric)}
 }
 
-func (h *Executor) doExecute() (interface{}, error) {
+func (ex *Executor) doExecute() (interface{}, error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
 	go func() {
-		value, err := h.command.Run()
+		value, err := ex.command.Run()
 		if value != nil {
 			valueChan <- value
 		}
 		if err != nil {
-			h.Metric().Fail()
+			ex.Metric().Fail()
 			errorChan <- err
 		} else {
-			h.Metric().Success()
+			ex.Metric().Success()
 		}
 	}()
 
@@ -48,39 +49,41 @@ func (h *Executor) doExecute() (interface{}, error) {
 		return value, nil
 	case err := <-errorChan:
 		return nil, err
-	case <-time.After(h.command.Timeout()):
-		h.Metric().Timeout()
+	case <-time.After(ex.command.Timeout()):
+		ex.Metric().Timeout()
 		return nil, fmt.Errorf("ERROR: Timeout!!")
 	}
 
 }
 
-func (h *Executor) doFallback() (interface{}, error) {
-	h.Metric().Fallback()
-	value, err := h.command.Fallback()
+func (ex *Executor) doFallback() (interface{}, error) {
+	ex.Metric().Fallback()
+	value, err := ex.command.Fallback()
 	if err != nil {
-		h.Metric().FallbackError()
+		ex.Metric().FallbackError()
 	}
 	return value, err
 }
 
-func (h *Executor) Execute() (interface{}, error) {
+func (ex *Executor) Execute() (value interface{}, err error) {
 	start := time.Now()
-	value, err := h.doExecute()
-	if err != nil {
-		return h.doFallback()
+
+	if ex.circuit.IsOpen() {
+		value, err = ex.doExecute()
+	} else {
+		value, err = ex.doFallback()
 	}
 	elapsed := time.Since(start)
 	fmt.Printf("It took %s\n", elapsed)
 	return value, err
 }
 
-func (h *Executor) Queue() (chan interface{}, chan error) {
+func (ex *Executor) Queue() (chan interface{}, chan error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
 
 	go func() {
-		value, err := h.Execute()
+		value, err := ex.Execute()
 		if value != nil {
 			valueChan <- value
 		}
@@ -91,14 +94,14 @@ func (h *Executor) Queue() (chan interface{}, chan error) {
 	return valueChan, errorChan
 }
 
-func (h *Executor) Metric() *metrics.Metric {
-	return h.metric
+func (ex *Executor) Metric() *metrics.Metric {
+	return ex.metric
 }
 
-func (h *Executor) SuccessCount() int64 {
-	return h.Metric().SuccessCount()
+func (ex *Executor) SuccessCount() int64 {
+	return ex.Metric().SuccessCount()
 }
 
-func (h *Executor) FailuresCount() int64 {
-	return h.Metric().FailuresCount()
+func (ex *Executor) FailuresCount() int64 {
+	return ex.Metric().FailuresCount()
 }
