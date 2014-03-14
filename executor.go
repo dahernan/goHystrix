@@ -25,7 +25,7 @@ func NewExecutor(command Command) *Executor {
 	if !ok {
 		metric = metrics.NewMetric(command.Group(), command.Name())
 	}
-	return &Executor{command, metric, NewCircuit(metric)}
+	return &Executor{command, metric, NewCircuit(metric, 3)}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {
@@ -37,17 +37,16 @@ func (ex *Executor) doExecute() (interface{}, error) {
 			valueChan <- value
 		}
 		if err != nil {
-			ex.Metric().Fail()
 			errorChan <- err
-		} else {
-			ex.Metric().Success()
 		}
 	}()
 
 	select {
 	case value := <-valueChan:
+		ex.Metric().Success()
 		return value, nil
 	case err := <-errorChan:
+		ex.Metric().Fail()
 		return nil, err
 	case <-time.After(ex.command.Timeout()):
 		ex.Metric().Timeout()
@@ -68,7 +67,7 @@ func (ex *Executor) doFallback() (interface{}, error) {
 func (ex *Executor) Execute() (value interface{}, err error) {
 	start := time.Now()
 
-	if ex.circuit.IsOpen() {
+	if !ex.circuit.IsOpen() {
 		value, err = ex.doExecute()
 	} else {
 		value, err = ex.doFallback()
@@ -104,4 +103,7 @@ func (ex *Executor) SuccessCount() int64 {
 
 func (ex *Executor) FailuresCount() int64 {
 	return ex.Metric().FailuresCount()
+}
+func (ex *Executor) TimeoutsCount() int64 {
+	return ex.Metric().TimeoutsCount()
 }

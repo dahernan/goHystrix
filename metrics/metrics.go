@@ -58,6 +58,11 @@ func (m *Metric) FallbackError() {
 
 func (m *Metric) Timeout() {
 	m.timeouts.Inc(1)
+	m.failures.Inc(1)
+	m.consecutiveSuccess.Clear()
+	m.consecutiveFailures.Inc(1)
+	m.lastFailure = time.Now()
+	m.lastTimeout = time.Now()
 }
 
 func (m *Metric) FailuresCount() int64 {
@@ -70,6 +75,14 @@ func (m *Metric) SuccessCount() int64 {
 
 func (m *Metric) TimeoutsCount() int64 {
 	return m.timeouts.Count()
+}
+
+func (m *Metric) ConsecutiveFailures() int64 {
+	return m.consecutiveFailures.Count()
+}
+
+func (m *Metric) LastFailure() time.Time {
+	return m.lastFailure
 }
 
 func NewMetricsHolder() *MetricsHolder {

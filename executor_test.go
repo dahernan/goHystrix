@@ -60,11 +60,12 @@ func (c *StringCommand) Fallback() (interface{}, error) {
 func TestRunString(t *testing.T) {
 
 	Convey("Command Run returns a string", t, func() {
-		x := NewStringCommand("ok", "fallbackOk")
+		metrics.MetricsReset()
+		okCommand := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Run is executed", func() {
 
-			result, err := x.Run()
+			result, err := okCommand.Run()
 
 			Convey("The result should be the string value", func() {
 				So(result, ShouldEqual, "hello hystrix world")
@@ -80,10 +81,11 @@ func TestRunString(t *testing.T) {
 func TestRunError(t *testing.T) {
 
 	Convey("Command Run returns an error", t, func() {
-		x := NewStringCommand("error", "fallbackOk")
+		metrics.MetricsReset()
+		errorCommand := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Run is executed", func() {
-			result, err := x.Run()
+			result, err := errorCommand.Run()
 
 			Convey("The result should be Nil", func() {
 				So(result, ShouldBeNil)
@@ -99,11 +101,12 @@ func TestRunError(t *testing.T) {
 func TestExecuteString(t *testing.T) {
 
 	Convey("Command Execute runs properly", t, func() {
-		x := NewStringCommand("ok", "fallbackOk")
+		metrics.MetricsReset()
+		okCommand := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Execute is called", func() {
 
-			result, err := x.Execute()
+			result, err := okCommand.Execute()
 
 			Convey("The result should be the string value", func() {
 				So(result, ShouldEqual, "hello hystrix world")
@@ -119,18 +122,34 @@ func TestExecuteString(t *testing.T) {
 func TestFallback(t *testing.T) {
 
 	Convey("Command Execute uses the Fallback", t, func() {
-		x := NewStringCommand("error", "fallbackOk")
+		metrics.MetricsReset()
+		errorCommand := NewStringCommand("error", "fallbackOk")
 
-		Convey("When Execute is called", func() {
-			result, err := x.Execute()
+		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
+			var result interface{}
+			var err error
 
-			Convey("The result should be the one from the fallback function", func() {
-				So(result, ShouldEqual, "FALLBACK")
-			})
+			// 1
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
 
-			Convey("There is no error", func() {
-				So(err, ShouldBeNil)
-			})
+			// 2
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+
+			//3
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+
+			// 4 limit reached, falling back
+			result, err = errorCommand.Execute()
+			So(err, ShouldBeNil)
+			So(result, ShouldEqual, "FALLBACK")
+			So(errorCommand.FailuresCount(), ShouldEqual, 3)
+
 		})
 	})
 }
@@ -138,28 +157,44 @@ func TestFallback(t *testing.T) {
 func TestExecuteTimeout(t *testing.T) {
 
 	Convey("Command returns the fallback due to timeout", t, func() {
-		x := NewStringCommand("timeout", "fallbackOk")
+		metrics.MetricsReset()
+		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
-		Convey("When Execute is called", func() {
-			result, err := x.Execute()
+		var result interface{}
+		var err error
 
-			Convey("The result should be FALLBACK", func() {
-				So(result, ShouldEqual, "FALLBACK")
-			})
+		// 1
+		result, err = timeoutCommand.Execute()
+		So(err, ShouldNotBeNil)
+		So(result, ShouldBeNil)
 
-			Convey("There is no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
+		// 2
+		result, err = timeoutCommand.Execute()
+		So(err, ShouldNotBeNil)
+		So(result, ShouldBeNil)
+
+		//3
+		result, err = timeoutCommand.Execute()
+		So(err, ShouldNotBeNil)
+		So(result, ShouldBeNil)
+
+		// 4 limit reached, falling back
+		result, err = timeoutCommand.Execute()
+		So(err, ShouldBeNil)
+		So(result, ShouldEqual, "FALLBACK")
+		So(timeoutCommand.FailuresCount(), ShouldEqual, 3)
+		So(timeoutCommand.TimeoutsCount(), ShouldEqual, 3)
+
 	})
 
 }
 func TestAsync(t *testing.T) {
 	Convey("Command run async and returns ok", t, func() {
-		x := NewStringCommand("ok", "fallbackOk")
+		metrics.MetricsReset()
+		okCommand := NewStringCommand("ok", "fallbackOk")
 
-		Convey("When Queue is called", func() {
-			resultChan, errorChan := x.Queue()
+		Convey("When Queue is called the result should be ok", func() {
+			resultChan, errorChan := okCommand.Queue()
 			var err error
 			var result interface{}
 			select {
@@ -169,12 +204,8 @@ func TestAsync(t *testing.T) {
 				result = nil
 			}
 
-			Convey("The result should be the string value", func() {
-				So(result, ShouldEqual, "hello hystrix world")
-			})
-			Convey("There is no error", func() {
-				So(err, ShouldBeNil)
-			})
+			So(result, ShouldEqual, "hello hystrix world")
+			So(err, ShouldBeNil)
 
 		})
 	})
@@ -183,12 +214,31 @@ func TestAsync(t *testing.T) {
 func TestAsyncFallback(t *testing.T) {
 
 	Convey("Command run async and returns the fallback", t, func() {
-		x := NewStringCommand("error", "fallbackOk")
+		metrics.MetricsReset()
+		errorCommand := NewStringCommand("error", "fallbackOk")
 
-		Convey("When Queue is called", func() {
-			resultChan, errorChan := x.Queue()
+		Convey("When Queue is called 3 times, the next time runs the fallback", func() {
 			var err error
 			var result interface{}
+
+			// 1
+			resultChan, errorChan := errorCommand.Queue()
+			err = <-errorChan
+			So(err, ShouldNotBeNil)
+
+			// 2
+			resultChan, errorChan = errorCommand.Queue()
+			err = <-errorChan
+			So(err, ShouldNotBeNil)
+
+			// 3
+			resultChan, errorChan = errorCommand.Queue()
+			err = <-errorChan
+			So(err, ShouldNotBeNil)
+
+			// 4 falling back
+			resultChan, errorChan = errorCommand.Queue()
+
 			select {
 			case result = <-resultChan:
 				err = nil
@@ -196,67 +246,94 @@ func TestAsyncFallback(t *testing.T) {
 				result = nil
 			}
 
-			Convey("The result should be the fallback", func() {
-				So(result, ShouldEqual, "FALLBACK")
-			})
-			Convey("There is no error", func() {
-				So(err, ShouldBeNil)
-			})
+			So(err, ShouldBeNil)
+			So(result, ShouldEqual, "FALLBACK")
+			So(errorCommand.FailuresCount(), ShouldEqual, 3)
+
 		})
 	})
 }
 
 func TestAsyncTimeout(t *testing.T) {
 	Convey("Command run async and returns the fallback due a timeout error", t, func() {
+		var err error
+		var result interface{}
+
 		metrics.MetricsReset()
+		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
-		x := NewStringCommand("timeout", "fallbackOk")
+		// 1
+		resultChan, errorChan := timeoutCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
 
-		Convey("When Queue is executed", func() {
-			resultChan, errorChan := x.Queue()
-			var err error
-			var result interface{}
-			select {
-			case result = <-resultChan:
-				err = nil
-			case err = <-errorChan:
-				result = nil
-			}
+		// 2
+		resultChan, errorChan = timeoutCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
 
-			Convey("The result should be the fallback string value and there is not error", func() {
-				So(result, ShouldEqual, "FALLBACK")
-				So(x.Metric().TimeoutsCount(), ShouldEqual, 1)
-				So(err, ShouldBeNil)
+		// 3
+		resultChan, errorChan = timeoutCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
 
-			})
-		})
+		// 4 falling back
+		resultChan, errorChan = timeoutCommand.Queue()
+
+		select {
+		case result = <-resultChan:
+			err = nil
+		case err = <-errorChan:
+			result = nil
+		}
+
+		So(err, ShouldBeNil)
+		So(result, ShouldEqual, "FALLBACK")
+		So(timeoutCommand.FailuresCount(), ShouldEqual, 3)
+		So(timeoutCommand.TimeoutsCount(), ShouldEqual, 3)
 	})
 
 }
 
 func TestAsyncFallbackError(t *testing.T) {
 
-	Convey("Command run async and returns the fallback error", t, func() {
-		x := NewStringCommand("error", "fallbackError")
+	Convey("Command run async and returns the fallback error after 3 times falling", t, func() {
+		metrics.MetricsReset()
+		fallbackErrorCommand := NewStringCommand("error", "fallbackError")
 
-		Convey("When Queue is executed", func() {
-			resultChan, errorChan := x.Queue()
-			var err error
-			var result interface{}
-			select {
-			case result = <-resultChan:
-				err = nil
-			case err = <-errorChan:
-				result = nil
-			}
+		var err error
+		var result interface{}
 
-			Convey("The result should be the nil", func() {
-				So(result, ShouldBeNil)
-			})
-			Convey("There is an error from the fallback", func() {
-				So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
-			})
-		})
+		// 1
+		resultChan, errorChan := fallbackErrorCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
+
+		// 2
+		resultChan, errorChan = fallbackErrorCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
+
+		// 3
+		resultChan, errorChan = fallbackErrorCommand.Queue()
+		err = <-errorChan
+		So(err, ShouldNotBeNil)
+
+		// 4 falling back
+		resultChan, errorChan = fallbackErrorCommand.Queue()
+
+		select {
+		case result = <-resultChan:
+			err = nil
+		case err = <-errorChan:
+			result = nil
+		}
+
+		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		So(result, ShouldBeNil)
+		So(fallbackErrorCommand.FailuresCount(), ShouldEqual, 3)
+		So(fallbackErrorCommand.TimeoutsCount(), ShouldEqual, 0)
+
 	})
 
 }
