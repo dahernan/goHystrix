@@ -18,67 +18,179 @@ type Metric struct {
 	name  string
 	group string
 
-	failures       Counter
-	success        Counter
-	fallback       Counter
-	fallbackErrors Counter
-	timeouts       Counter
+	successChan       chan time.Duration
+	failuresChan      chan struct{}
+	fallbackChan      chan struct{}
+	fallbackErrorChan chan struct{}
+	timeoutsChan      chan struct{}
+	countersChan      chan struct{}
+	countersOutChan   chan Counters
 
-	consecutiveFailures Counter
-	consecutiveSuccess  Counter
-	consecutiveTimeouts Counter
+	buckets int
+	window  time.Duration
+	values  []Counters
+
+	consecutiveFailures int64
+	consecutiveSuccess  int64
+	consecutiveTimeouts int64
 
 	lastFailure time.Time
 	lastSuccess time.Time
 	lastTimeout time.Time
 }
 
-func (m *Metric) Success() {
-	// TODO: rethink !! is not concurrency safe
-	m.success.Inc(1)
-	m.consecutiveSuccess.Inc(1)
-	m.consecutiveFailures.Clear()
+func NewMetric(group string, name string) *Metric {
+	return NewMetricWithDuration(group, name, 20, 20*time.Second)
+}
+
+func NewMetricWithDuration(group string, name string, windowSize int, duration time.Duration) *Metric {
+	m := &Metric{}
+
+	m.name = name
+	m.group = group
+
+	m.buckets = windowSize
+	m.window = duration
+	m.values = make([]Counters, m.buckets, m.buckets)
+
+	m.successChan = make(chan time.Duration)
+	m.failuresChan = make(chan struct{})
+	m.fallbackChan = make(chan struct{})
+	m.fallbackErrorChan = make(chan struct{})
+	m.timeoutsChan = make(chan struct{})
+	m.countersChan = make(chan struct{})
+	m.countersOutChan = make(chan Counters)
+
+	Metrics().Set(group, name, m)
+	go m.run()
+	return m
+
+}
+
+type Counters struct {
+	Failures       int64
+	Success        int64
+	Fallback       int64
+	FallbackErrors int64
+	Timeouts       int64
+	lastWrite      time.Time
+}
+
+func (c *Counters) Reset() {
+	c.Failures = 0
+	c.Success = 0
+	c.Fallback = 0
+	c.FallbackErrors = 0
+	c.Timeouts = 0
+}
+
+func (m *Metric) run() {
+	for {
+		select {
+		case duration := <-m.successChan:
+			m.doSuccess(duration)
+		case <-m.failuresChan:
+			m.doFail()
+		case <-m.timeoutsChan:
+			m.doTimeout()
+		case <-m.fallbackChan:
+			m.doFallback()
+		case <-m.fallbackErrorChan:
+			m.doFallbackError()
+		case <-m.countersChan:
+			m.countersOutChan <- m.doCounters()
+			//case <-time.After(2 * time.Second):
+			//	fmt.Println("NOTHING :(")
+		}
+	}
+
+}
+
+func (m *Metric) bucket() *Counters {
+	now := time.Now()
+	index := now.Second() % m.buckets
+	if !m.values[index].lastWrite.IsZero() {
+		elapsed := now.Sub(m.values[index].lastWrite)
+		if elapsed > m.window {
+			m.values[index].Reset()
+		}
+	}
+	m.values[index].lastWrite = now
+	return &m.values[index]
+}
+
+func (m *Metric) doSuccess(duration time.Duration) {
+	m.bucket().Success++
+	m.consecutiveSuccess++
+	m.consecutiveFailures = 0
 	m.lastSuccess = time.Now()
 }
 
-func (m *Metric) Fail() {
-	m.failures.Inc(1)
-	m.consecutiveSuccess.Clear()
-	m.consecutiveFailures.Inc(1)
+func (m *Metric) doFail() {
+	m.bucket().Failures++
+	m.consecutiveSuccess = 0
+	m.consecutiveFailures++
 	m.lastFailure = time.Now()
 }
 
-func (m *Metric) Fallback() {
-	m.fallback.Inc(1)
+func (m *Metric) doCounters() (counters Counters) {
+	now := time.Now()
+	for _, value := range m.values {
+		if !value.lastWrite.IsZero() && (now.Sub(value.lastWrite) <= m.window) {
+			counters.Success += value.Success
+			counters.Failures += value.Failures
+			counters.Fallback += value.Fallback
+			counters.FallbackErrors += value.FallbackErrors
+			counters.Timeouts += value.Timeouts
+		}
+	}
+	return
 }
 
-func (m *Metric) FallbackError() {
-	m.fallbackErrors.Inc(1)
-}
+func (m *Metric) doTimeout() {
+	m.bucket().Timeouts++
+	m.bucket().Failures++
 
-func (m *Metric) Timeout() {
-	m.timeouts.Inc(1)
-	m.failures.Inc(1)
-	m.consecutiveSuccess.Clear()
-	m.consecutiveFailures.Inc(1)
+	m.consecutiveSuccess = 0
+	m.consecutiveFailures++
 	m.lastFailure = time.Now()
 	m.lastTimeout = time.Now()
 }
 
-func (m *Metric) FailuresCount() int64 {
-	return m.failures.Count()
+func (m *Metric) Counters() Counters {
+	m.countersChan <- struct{}{}
+	return <-m.countersOutChan
 }
 
-func (m *Metric) SuccessCount() int64 {
-	return m.success.Count()
+func (m *Metric) Success(duration time.Duration) {
+	m.successChan <- duration
 }
 
-func (m *Metric) TimeoutsCount() int64 {
-	return m.timeouts.Count()
+func (m *Metric) Fail() {
+	m.failuresChan <- struct{}{}
+}
+
+func (m *Metric) doFallback() {
+	m.bucket().Fallback++
+}
+func (m *Metric) Fallback() {
+	m.fallbackChan <- struct{}{}
+}
+
+func (m *Metric) doFallbackError() {
+	m.bucket().FallbackErrors++
+}
+
+func (m *Metric) FallbackError() {
+	m.fallbackErrorChan <- struct{}{}
+}
+
+func (m *Metric) Timeout() {
+	m.timeoutsChan <- struct{}{}
 }
 
 func (m *Metric) ConsecutiveFailures() int64 {
-	return m.consecutiveFailures.Count()
+	return m.consecutiveFailures
 }
 
 func (m *Metric) LastFailure() time.Time {
@@ -94,26 +206,6 @@ func Metrics() *MetricsHolder {
 }
 func MetricsReset() {
 	metrics = NewMetricsHolder()
-}
-
-func NewMetric(group string, name string) *Metric {
-	m := &Metric{}
-	m.name = name
-	m.group = group
-
-	m.success = NewCounter()
-	m.failures = NewCounter()
-	m.fallback = NewCounter()
-	m.fallbackErrors = NewCounter()
-	m.timeouts = NewCounter()
-
-	m.consecutiveFailures = NewCounter()
-	m.consecutiveSuccess = NewCounter()
-	m.consecutiveTimeouts = NewCounter()
-
-	Metrics().Set(group, name, m)
-	return m
-
 }
 
 func (holder *MetricsHolder) Get(group string, name string) (*Metric, bool) {

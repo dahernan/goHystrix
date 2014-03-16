@@ -31,8 +31,11 @@ func NewExecutor(command Command) *Executor {
 func (ex *Executor) doExecute() (interface{}, error) {
 	valueChan := make(chan interface{}, 1)
 	errorChan := make(chan error, 1)
+	var elapsed time.Duration
 	go func() {
+		start := time.Now()
 		value, err := ex.command.Run()
+		elapsed = time.Since(start)
 		if value != nil {
 			valueChan <- value
 		}
@@ -43,7 +46,7 @@ func (ex *Executor) doExecute() (interface{}, error) {
 
 	select {
 	case value := <-valueChan:
-		ex.Metric().Success()
+		ex.Metric().Success(elapsed)
 		return value, nil
 	case err := <-errorChan:
 		ex.Metric().Fail()
@@ -65,15 +68,12 @@ func (ex *Executor) doFallback() (interface{}, error) {
 }
 
 func (ex *Executor) Execute() (value interface{}, err error) {
-	start := time.Now()
-
 	if !ex.circuit.IsOpen() {
 		value, err = ex.doExecute()
 	} else {
 		value, err = ex.doFallback()
 	}
-	elapsed := time.Since(start)
-	fmt.Printf("It took %s\n", elapsed)
+
 	return value, err
 }
 
@@ -98,12 +98,12 @@ func (ex *Executor) Metric() *metrics.Metric {
 }
 
 func (ex *Executor) SuccessCount() int64 {
-	return ex.Metric().SuccessCount()
+	return ex.Metric().Counters().Success
 }
 
 func (ex *Executor) FailuresCount() int64 {
-	return ex.Metric().FailuresCount()
+	return ex.Metric().Counters().Failures
 }
 func (ex *Executor) TimeoutsCount() int64 {
-	return ex.Metric().TimeoutsCount()
+	return ex.Metric().Counters().Timeouts
 }

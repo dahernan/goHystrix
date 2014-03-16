@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const rescaleThreshold = 1e9 * 60 * 60
+const rescaleThreshold = 1e9 * 60 * 60 // 1 hour
 
 // Samples maintain a statistically-significant selection of values from
 // a stream.
