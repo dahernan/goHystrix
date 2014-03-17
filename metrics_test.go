@@ -167,7 +167,7 @@ func TestCounters(t *testing.T) {
 func TestRollingsCounters(t *testing.T) {
 	Convey("Metric stores the counters in buckets for rolling the counters", t, func() {
 		Metrics()
-		metric := NewMetricWithDuration("group2", "test", 4, 4*time.Second)
+		metric := NewMetricWithSecondsDuration("group2", "test", 4)
 		fmt.Println("== metric.Success(1)")
 		metric.Success(1)
 		metric.Success(1)

@@ -36,17 +36,17 @@ type Metric struct {
 }
 
 func NewMetric(group string, name string) *Metric {
-	return NewMetricWithDuration(group, name, 20, 20*time.Second)
+	return NewMetricWithSecondsDuration(group, name, 20)
 }
 
-func NewMetricWithDuration(group string, name string, windowSize int, duration time.Duration) *Metric {
+func NewMetricWithSecondsDuration(group string, name string, numberOfSecondsToStore int) *Metric {
 	m := &Metric{}
 
 	m.name = name
 	m.group = group
 
-	m.buckets = windowSize
-	m.window = duration
+	m.buckets = numberOfSecondsToStore
+	m.window = time.Duration(numberOfSecondsToStore) * time.Second
 	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)
 
 	m.successChan = make(chan time.Duration)
