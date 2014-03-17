@@ -1,2 +1,2 @@
 This code is based in https://github.com/rcrowley/go-metrics by Richard Crowley. (Attached the LICENSE)
-I didn't use the library itself because I only need a couple of classes (counter, histogram and sample)
+I didn't use the library itself because I only need a couple of classes (histogram? and sample)

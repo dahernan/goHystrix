@@ -1,16 +1,12 @@
 package goHystrix
 
-import (
-	"github.com/dahernan/goHystrix/metrics"
-)
-
 type CircuitBreaker struct {
-	metric              *metrics.Metric
+	metric              *Metric
 	errorsThreshold     float64
 	minRequestThreshold int64 // min number of request
 }
 
-func NewCircuit(metric *metrics.Metric, errorsThreshold float64, min int64) *CircuitBreaker {
+func NewCircuit(metric *Metric, errorsThreshold float64, min int64) *CircuitBreaker {
 	return &CircuitBreaker{metric: metric, errorsThreshold: errorsThreshold, minRequestThreshold: min}
 }
 

@@ -2,7 +2,6 @@ package goHystrix
 
 import (
 	"fmt"
-	"github.com/dahernan/goHystrix/metrics"
 	"time"
 )
 
@@ -16,14 +15,14 @@ type Command interface {
 
 type Executor struct {
 	command Command
-	metric  *metrics.Metric
+	metric  *Metric
 	circuit *CircuitBreaker
 }
 
 func NewExecutor(command Command) *Executor {
-	metric, ok := metrics.Metrics().Get(command.Group(), command.Name())
+	metric, ok := Metrics().Get(command.Group(), command.Name())
 	if !ok {
-		metric = metrics.NewMetric(command.Group(), command.Name())
+		metric = NewMetric(command.Group(), command.Name())
 	}
 	return &Executor{command, metric, NewCircuit(metric, 50.0, 20)}
 }
@@ -93,10 +92,10 @@ func (ex *Executor) Queue() (chan interface{}, chan error) {
 	return valueChan, errorChan
 }
 
-func (ex *Executor) Metric() *metrics.Metric {
+func (ex *Executor) Metric() *Metric {
 	return ex.metric
 }
 
-func (ex *Executor) HealthCounts() metrics.HealthCounts {
+func (ex *Executor) HealthCounts() HealthCounts {
 	return ex.Metric().HealthCounts()
 }
