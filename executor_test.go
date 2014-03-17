@@ -148,7 +148,7 @@ func TestFallback(t *testing.T) {
 			result, err = errorCommand.Execute()
 			So(err, ShouldBeNil)
 			So(result, ShouldEqual, "FALLBACK")
-			So(errorCommand.FailuresCount(), ShouldEqual, 3)
+			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 
 		})
 	})
@@ -182,8 +182,8 @@ func TestExecuteTimeout(t *testing.T) {
 		result, err = timeoutCommand.Execute()
 		So(err, ShouldBeNil)
 		So(result, ShouldEqual, "FALLBACK")
-		So(timeoutCommand.FailuresCount(), ShouldEqual, 3)
-		So(timeoutCommand.TimeoutsCount(), ShouldEqual, 3)
+		So(timeoutCommand.HealthCounts().Failures, ShouldEqual, 3)
+		So(timeoutCommand.HealthCounts().Timeouts, ShouldEqual, 3)
 
 	})
 
@@ -248,7 +248,7 @@ func TestAsyncFallback(t *testing.T) {
 
 			So(err, ShouldBeNil)
 			So(result, ShouldEqual, "FALLBACK")
-			So(errorCommand.FailuresCount(), ShouldEqual, 3)
+			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 
 		})
 	})
@@ -289,8 +289,8 @@ func TestAsyncTimeout(t *testing.T) {
 
 		So(err, ShouldBeNil)
 		So(result, ShouldEqual, "FALLBACK")
-		So(timeoutCommand.FailuresCount(), ShouldEqual, 3)
-		So(timeoutCommand.TimeoutsCount(), ShouldEqual, 3)
+		So(timeoutCommand.HealthCounts().Failures, ShouldEqual, 3)
+		So(timeoutCommand.HealthCounts().Timeouts, ShouldEqual, 3)
 	})
 
 }
@@ -331,8 +331,8 @@ func TestAsyncFallbackError(t *testing.T) {
 
 		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
 		So(result, ShouldBeNil)
-		So(fallbackErrorCommand.FailuresCount(), ShouldEqual, 3)
-		So(fallbackErrorCommand.TimeoutsCount(), ShouldEqual, 0)
+		So(fallbackErrorCommand.HealthCounts().Failures, ShouldEqual, 3)
+		So(fallbackErrorCommand.HealthCounts().Timeouts, ShouldEqual, 0)
 
 	})
 
@@ -352,10 +352,10 @@ func TestMetrics(t *testing.T) {
 			y.Execute()
 
 			Convey("The success and failures counters are correct", func() {
-				So(x.SuccessCount(), ShouldEqual, 2)
-				So(y.SuccessCount(), ShouldEqual, 2)
-				So(x.FailuresCount(), ShouldEqual, 3)
-				So(y.FailuresCount(), ShouldEqual, 3)
+				So(x.HealthCounts().Success, ShouldEqual, 2)
+				So(y.HealthCounts().Success, ShouldEqual, 2)
+				So(x.HealthCounts().Failures, ShouldEqual, 3)
+				So(y.HealthCounts().Failures, ShouldEqual, 3)
 			})
 
 		})

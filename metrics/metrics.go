@@ -24,15 +24,11 @@ type Metric struct {
 	fallbackErrorChan chan struct{}
 	timeoutsChan      chan struct{}
 	countersChan      chan struct{}
-	countersOutChan   chan Counters
+	countersOutChan   chan HealthCounts
 
 	buckets int
 	window  time.Duration
-	values  []Counters
-
-	consecutiveFailures int64
-	consecutiveSuccess  int64
-	consecutiveTimeouts int64
+	values  []HealthCountsBucket
 
 	lastFailure time.Time
 	lastSuccess time.Time
@@ -51,7 +47,7 @@ func NewMetricWithDuration(group string, name string, windowSize int, duration t
 
 	m.buckets = windowSize
 	m.window = duration
-	m.values = make([]Counters, m.buckets, m.buckets)
+	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)
 
 	m.successChan = make(chan time.Duration)
 	m.failuresChan = make(chan struct{})
@@ -59,7 +55,7 @@ func NewMetricWithDuration(group string, name string, windowSize int, duration t
 	m.fallbackErrorChan = make(chan struct{})
 	m.timeoutsChan = make(chan struct{})
 	m.countersChan = make(chan struct{})
-	m.countersOutChan = make(chan Counters)
+	m.countersOutChan = make(chan HealthCounts)
 
 	Metrics().Set(group, name, m)
 	go m.run()
@@ -67,7 +63,7 @@ func NewMetricWithDuration(group string, name string, windowSize int, duration t
 
 }
 
-type Counters struct {
+type HealthCountsBucket struct {
 	Failures       int64
 	Success        int64
 	Fallback       int64
@@ -76,7 +72,13 @@ type Counters struct {
 	lastWrite      time.Time
 }
 
-func (c *Counters) Reset() {
+type HealthCounts struct {
+	HealthCountsBucket
+	Total           int64
+	ErrorPercentage float64
+}
+
+func (c *HealthCountsBucket) Reset() {
 	c.Failures = 0
 	c.Success = 0
 	c.Fallback = 0
@@ -98,7 +100,7 @@ func (m *Metric) run() {
 		case <-m.fallbackErrorChan:
 			m.doFallbackError()
 		case <-m.countersChan:
-			m.countersOutChan <- m.doCounters()
+			m.countersOutChan <- m.doHealthCounts()
 			//case <-time.After(2 * time.Second):
 			//	fmt.Println("NOTHING :(")
 		}
@@ -106,7 +108,7 @@ func (m *Metric) run() {
 
 }
 
-func (m *Metric) bucket() *Counters {
+func (m *Metric) bucket() *HealthCountsBucket {
 	now := time.Now()
 	index := now.Second() % m.buckets
 	if !m.values[index].lastWrite.IsZero() {
@@ -121,19 +123,31 @@ func (m *Metric) bucket() *Counters {
 
 func (m *Metric) doSuccess(duration time.Duration) {
 	m.bucket().Success++
-	m.consecutiveSuccess++
-	m.consecutiveFailures = 0
 	m.lastSuccess = time.Now()
 }
 
 func (m *Metric) doFail() {
 	m.bucket().Failures++
-	m.consecutiveSuccess = 0
-	m.consecutiveFailures++
 	m.lastFailure = time.Now()
 }
 
-func (m *Metric) doCounters() (counters Counters) {
+func (m *Metric) doFallback() {
+	m.bucket().Fallback++
+}
+
+func (m *Metric) doTimeout() {
+	m.bucket().Timeouts++
+	m.bucket().Failures++
+	now := time.Now()
+	m.lastFailure = now
+	m.lastTimeout = now
+}
+
+func (m *Metric) doFallbackError() {
+	m.bucket().FallbackErrors++
+}
+
+func (m *Metric) doHealthCounts() (counters HealthCounts) {
 	now := time.Now()
 	for _, value := range m.values {
 		if !value.lastWrite.IsZero() && (now.Sub(value.lastWrite) <= m.window) {
@@ -144,20 +158,16 @@ func (m *Metric) doCounters() (counters Counters) {
 			counters.Timeouts += value.Timeouts
 		}
 	}
+	counters.Total = counters.Success + counters.Failures
+	if counters.Total == 0 {
+		counters.ErrorPercentage = 0
+	} else {
+		counters.ErrorPercentage = float64(counters.Failures) / float64(counters.Total) * 100.0
+	}
 	return
 }
 
-func (m *Metric) doTimeout() {
-	m.bucket().Timeouts++
-	m.bucket().Failures++
-
-	m.consecutiveSuccess = 0
-	m.consecutiveFailures++
-	m.lastFailure = time.Now()
-	m.lastTimeout = time.Now()
-}
-
-func (m *Metric) Counters() Counters {
+func (m *Metric) HealthCounts() HealthCounts {
 	m.countersChan <- struct{}{}
 	return <-m.countersOutChan
 }
@@ -170,15 +180,8 @@ func (m *Metric) Fail() {
 	m.failuresChan <- struct{}{}
 }
 
-func (m *Metric) doFallback() {
-	m.bucket().Fallback++
-}
 func (m *Metric) Fallback() {
 	m.fallbackChan <- struct{}{}
-}
-
-func (m *Metric) doFallbackError() {
-	m.bucket().FallbackErrors++
 }
 
 func (m *Metric) FallbackError() {
@@ -187,10 +190,6 @@ func (m *Metric) FallbackError() {
 
 func (m *Metric) Timeout() {
 	m.timeoutsChan <- struct{}{}
-}
-
-func (m *Metric) ConsecutiveFailures() int64 {
-	return m.consecutiveFailures
 }
 
 func (m *Metric) LastFailure() time.Time {

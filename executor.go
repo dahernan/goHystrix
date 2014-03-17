@@ -25,7 +25,7 @@ func NewExecutor(command Command) *Executor {
 	if !ok {
 		metric = metrics.NewMetric(command.Group(), command.Name())
 	}
-	return &Executor{command, metric, NewCircuit(metric, 3)}
+	return &Executor{command, metric, NewCircuit(metric, 50.0)}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {
@@ -97,13 +97,6 @@ func (ex *Executor) Metric() *metrics.Metric {
 	return ex.metric
 }
 
-func (ex *Executor) SuccessCount() int64 {
-	return ex.Metric().Counters().Success
-}
-
-func (ex *Executor) FailuresCount() int64 {
-	return ex.Metric().Counters().Failures
-}
-func (ex *Executor) TimeoutsCount() int64 {
-	return ex.Metric().Counters().Timeouts
+func (ex *Executor) HealthCounts() metrics.HealthCounts {
+	return ex.Metric().HealthCounts()
 }

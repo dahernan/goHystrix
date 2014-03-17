@@ -88,7 +88,7 @@ func TestCountersSuccess(t *testing.T) {
 		metric.Success(1)
 		metric.Success(2)
 
-		c1 := metric.Counters()
+		c1 := metric.HealthCounts()
 
 		s := c1.Success
 
@@ -100,7 +100,7 @@ func TestCountersSuccess(t *testing.T) {
 
 		metric.Success(3)
 
-		c2 := metric.Counters()
+		c2 := metric.HealthCounts()
 
 		So(c1.Success, ShouldEqual, 2)
 
@@ -135,13 +135,15 @@ func TestCounters(t *testing.T) {
 		metric.Timeout()
 		metric.Timeout()
 
-		c1 := metric.Counters()
+		c1 := metric.HealthCounts()
 
 		So(c1.Success, ShouldEqual, 4)
 		So(c1.Failures, ShouldEqual, 7)
 		So(c1.Timeouts, ShouldEqual, 4)
 		So(c1.Fallback, ShouldEqual, 2)
 		So(c1.FallbackErrors, ShouldEqual, 3)
+		So(c1.Total, ShouldEqual, 11)
+		So(c1.ErrorPercentage, ShouldEqual, 63.63636363636363)
 
 		metric.Fail()
 		metric.Success(5)
@@ -149,13 +151,15 @@ func TestCounters(t *testing.T) {
 		metric.FallbackError()
 		metric.Timeout()
 
-		c2 := metric.Counters()
+		c2 := metric.HealthCounts()
 
 		So(c2.Success, ShouldEqual, 5)
 		So(c2.Failures, ShouldEqual, 9)
 		So(c2.Timeouts, ShouldEqual, 5)
 		So(c2.Fallback, ShouldEqual, 3)
 		So(c2.FallbackErrors, ShouldEqual, 4)
+		So(c2.Total, ShouldEqual, 14)
+		So(c2.ErrorPercentage, ShouldEqual, 64.28571428571429)
 
 	})
 }
@@ -196,7 +200,7 @@ func TestRollingsCounters(t *testing.T) {
 		metric.FallbackError()
 		metric.Timeout()
 
-		c1 := metric.Counters()
+		c1 := metric.HealthCounts()
 
 		fmt.Println("== c1", c1)
 
@@ -205,6 +209,8 @@ func TestRollingsCounters(t *testing.T) {
 		So(c1.Timeouts, ShouldEqual, 2)
 		So(c1.Fallback, ShouldEqual, 2)
 		So(c1.FallbackErrors, ShouldEqual, 2)
+		So(c1.Total, ShouldEqual, 11)
+		So(c1.ErrorPercentage, ShouldEqual, 63.63636363636363)
 
 	})
 }
