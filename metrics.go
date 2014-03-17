@@ -192,10 +192,6 @@ func (m *Metric) Timeout() {
 	m.timeoutsChan <- struct{}{}
 }
 
-func (m *Metric) LastFailure() time.Time {
-	return m.lastFailure
-}
-
 func NewMetricsHolder() *MetricsHolder {
 	return &MetricsHolder{metrics: make(map[string]map[string]*Metric)}
 }
