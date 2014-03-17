@@ -17,7 +17,7 @@ type Command interface {
 type Executor struct {
 	command Command
 	metric  *metrics.Metric
-	circuit Circuit
+	circuit *CircuitBreaker
 }
 
 func NewExecutor(command Command) *Executor {
@@ -25,7 +25,7 @@ func NewExecutor(command Command) *Executor {
 	if !ok {
 		metric = metrics.NewMetric(command.Group(), command.Name())
 	}
-	return &Executor{command, metric, NewCircuit(metric, 50.0)}
+	return &Executor{command, metric, NewCircuit(metric, 50.0, 20)}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {

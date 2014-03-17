@@ -19,6 +19,7 @@ func NewStringCommand(state string, fallbackState string) *StringCommand {
 	command = &StringCommand{}
 	executor := NewExecutor(command)
 	command.Executor = executor
+	executor.circuit.minRequestThreshold = 3
 	command.state = state
 	command.fallbackState = fallbackState
 	return command
@@ -221,17 +222,17 @@ func TestAsyncFallback(t *testing.T) {
 			var err error
 			var result interface{}
 
-			// 1
+			// 1 fail
 			resultChan, errorChan := errorCommand.Queue()
 			err = <-errorChan
 			So(err, ShouldNotBeNil)
 
-			// 2
+			// 2  fail
 			resultChan, errorChan = errorCommand.Queue()
 			err = <-errorChan
 			So(err, ShouldNotBeNil)
 
-			// 3
+			// 3 fail
 			resultChan, errorChan = errorCommand.Queue()
 			err = <-errorChan
 			So(err, ShouldNotBeNil)
@@ -262,17 +263,17 @@ func TestAsyncTimeout(t *testing.T) {
 		metrics.MetricsReset()
 		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
-		// 1
+		// 1 timeout
 		resultChan, errorChan := timeoutCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
 
-		// 2
+		// 2 timeout
 		resultChan, errorChan = timeoutCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
 
-		// 3
+		// 3 timeout
 		resultChan, errorChan = timeoutCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
@@ -304,22 +305,22 @@ func TestAsyncFallbackError(t *testing.T) {
 		var err error
 		var result interface{}
 
-		// 1
+		// 1 fail
 		resultChan, errorChan := fallbackErrorCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
 
-		// 2
+		// 2 fail
 		resultChan, errorChan = fallbackErrorCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
 
-		// 3
+		// 3 fail
 		resultChan, errorChan = fallbackErrorCommand.Queue()
 		err = <-errorChan
 		So(err, ShouldNotBeNil)
 
-		// 4 falling back
+		// 4 falling back error
 		resultChan, errorChan = fallbackErrorCommand.Queue()
 
 		select {
@@ -332,6 +333,7 @@ func TestAsyncFallbackError(t *testing.T) {
 		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
 		So(result, ShouldBeNil)
 		So(fallbackErrorCommand.HealthCounts().Failures, ShouldEqual, 3)
+		So(fallbackErrorCommand.HealthCounts().FallbackErrors, ShouldEqual, 1)
 		So(fallbackErrorCommand.HealthCounts().Timeouts, ShouldEqual, 0)
 
 	})
@@ -345,17 +347,19 @@ func TestMetrics(t *testing.T) {
 		y := NewStringCommand("error", "fallbackok")
 
 		Convey("When Execute is called 2 times the counters are updated", func() {
-			x.Execute()
-			x.Execute()
-			y.Execute()
-			y.Execute()
-			y.Execute()
+			x.Execute() // success
+			x.Execute() // success
+			y.Execute() // error
+			y.Execute() // error
+			y.Execute() // fallback
 
 			Convey("The success and failures counters are correct", func() {
 				So(x.HealthCounts().Success, ShouldEqual, 2)
 				So(y.HealthCounts().Success, ShouldEqual, 2)
-				So(x.HealthCounts().Failures, ShouldEqual, 3)
-				So(y.HealthCounts().Failures, ShouldEqual, 3)
+				So(x.HealthCounts().Failures, ShouldEqual, 2)
+				So(y.HealthCounts().Failures, ShouldEqual, 2)
+				So(x.HealthCounts().Fallback, ShouldEqual, 1)
+				So(y.HealthCounts().Fallback, ShouldEqual, 1)
 			})
 
 		})
