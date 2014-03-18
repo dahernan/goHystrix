@@ -20,11 +20,9 @@ type Executor struct {
 }
 
 func NewExecutor(command Command) *Executor {
-	metric, ok := Metrics().Get(command.Group(), command.Name())
-	if !ok {
-		metric = NewMetric(command.Group(), command.Name())
-	}
-	return &Executor{command, metric, NewCircuit(metric, 50.0, 20)}
+	metric := NewMetric(command.Group(), command.Name())
+	circuit := NewCircuit(metric, 50.0, 20)
+	return &Executor{command, metric, circuit}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {

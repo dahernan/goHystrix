@@ -43,7 +43,12 @@ func NewMetric(group string, name string) *Metric {
 }
 
 func NewMetricWithSecondsDuration(group string, name string, numberOfSecondsToStore int) *Metric {
-	m := &Metric{}
+	m, ok := Metrics().Get(group, name)
+	if ok {
+		return m
+	}
+
+	m = &Metric{}
 
 	m.name = name
 	m.group = group
