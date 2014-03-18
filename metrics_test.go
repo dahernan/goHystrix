@@ -214,3 +214,23 @@ func TestRollingsCounters(t *testing.T) {
 
 	})
 }
+
+func TestMetricsKeepMessuaresSample(t *testing.T) {
+	Convey("Keep the stats of the duration for the successful results", t, func() {
+		Metrics()
+		metric := NewMetricWithSecondsDuration("group2", "test", 4)
+		metric.Success(5)
+		metric.Success(1)
+		metric.Success(9)
+		metric.Success(2)
+		metric.Success(5)
+		metric.Success(8)
+
+		So(metric.Stats().Max(), ShouldEqual, 9)
+		So(metric.Stats().Min(), ShouldEqual, 1)
+		So(metric.Stats().Mean(), ShouldEqual, 5)
+		So(metric.Stats().Count(), ShouldEqual, 6)
+		So(metric.Stats().Variance(), ShouldEqual, 8.333333333333334)
+
+	})
+}

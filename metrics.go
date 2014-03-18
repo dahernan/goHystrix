@@ -1,6 +1,7 @@
 package goHystrix
 
 import (
+	"github.com/dahernan/goHystrix/sample"
 	"sync"
 	"time"
 )
@@ -30,6 +31,8 @@ type Metric struct {
 	window  time.Duration
 	values  []HealthCountsBucket
 
+	sample sample.Sample
+
 	lastFailure time.Time
 	lastSuccess time.Time
 	lastTimeout time.Time
@@ -48,6 +51,8 @@ func NewMetricWithSecondsDuration(group string, name string, numberOfSecondsToSt
 	m.buckets = numberOfSecondsToStore
 	m.window = time.Duration(numberOfSecondsToStore) * time.Second
 	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)
+
+	m.sample = sample.NewExpDecaySample(50, 0.015)
 
 	m.successChan = make(chan time.Duration)
 	m.failuresChan = make(chan struct{})
@@ -124,6 +129,10 @@ func (m *Metric) bucket() *HealthCountsBucket {
 func (m *Metric) doSuccess(duration time.Duration) {
 	m.bucket().Success++
 	m.lastSuccess = time.Now()
+
+	go func(d time.Duration) {
+		m.sample.Update(int64(d))
+	}(duration)
 }
 
 func (m *Metric) doFail() {
@@ -190,6 +199,10 @@ func (m *Metric) FallbackError() {
 
 func (m *Metric) Timeout() {
 	m.timeoutsChan <- struct{}{}
+}
+
+func (m *Metric) Stats() sample.Sample {
+	return m.sample
 }
 
 func NewMetricsHolder() *MetricsHolder {
