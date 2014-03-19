@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Command interface {
+type Interface interface {
 	Run() (interface{}, error)
 	Fallback() (interface{}, error)
 	Timeout() time.Duration
@@ -13,13 +13,23 @@ type Command interface {
 	Group() string
 }
 
+type Command struct {
+	Interface
+	*Executor
+}
+
 type Executor struct {
-	command Command
+	command Interface
 	metric  *Metric
 	circuit *CircuitBreaker
 }
 
-func NewExecutor(command Command) *Executor {
+func NewCommand(command Interface) *Command {
+	executor := NewExecutor(command)
+	return &Command{command, executor}
+}
+
+func NewExecutor(command Interface) *Executor {
 	metric := NewMetric(command.Group(), command.Name())
 	circuit := NewCircuit(metric, 50.0, 20)
 	return &Executor{command, metric, circuit}

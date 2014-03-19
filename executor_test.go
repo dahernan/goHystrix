@@ -10,18 +10,19 @@ import (
 type StringCommand struct {
 	state         string
 	fallbackState string
-	*Executor
 }
 
-func NewStringCommand(state string, fallbackState string) *StringCommand {
+func NewStringCommand(state string, fallbackState string) *Command {
 	var command *StringCommand
 	command = &StringCommand{}
-	executor := NewExecutor(command)
-	command.Executor = executor
-	executor.circuit.minRequestThreshold = 3
 	command.state = state
 	command.fallbackState = fallbackState
-	return command
+
+	//executor := NewExecutor(command)
+	//command.Executor = executor
+	//executor.circuit.minRequestThreshold = 3
+
+	return NewCommand(command)
 }
 
 func (c *StringCommand) Name() string {

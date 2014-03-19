@@ -1,4 +1,0 @@
-Implementation in Go (aka golang) of some of the stability patterns, like Circuit Breaker.
-
-* Inspired by Nexflix Hystrix https://github.com/Netflix/Hystrix
-* And the book Release it! http://www.amazon.co.uk/Release-Production-Ready-Software-Pragmatic-Programmers-ebook/dp/B00A32NXZO/
