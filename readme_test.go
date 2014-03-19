@@ -37,12 +37,15 @@ func TestString(t *testing.T) {
 	command := NewCommand(&MyStringCommand{"helloooooooo"})
 	value, err := command.Execute()
 
+	fmt.Println("Sync call ---- ")
 	fmt.Println("Value: ", value)
 	fmt.Println("Error: ", err)
 
 	// Async execution
+
 	valueChan, errorChan := command.Queue()
 
+	fmt.Println("Async call ---- ")
 	select {
 	case value = <-valueChan:
 		fmt.Println("Value: ", value)
@@ -51,5 +54,6 @@ func TestString(t *testing.T) {
 	}
 
 	fmt.Println("Succesfull Calls ", command.HealthCounts().Success)
+	fmt.Println("Mean: ", command.Stats().Mean())
 
 }

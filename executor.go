@@ -2,6 +2,7 @@ package goHystrix
 
 import (
 	"fmt"
+	"github.com/dahernan/goHystrix/sample"
 	"time"
 )
 
@@ -106,4 +107,8 @@ func (ex *Executor) Metric() *Metric {
 
 func (ex *Executor) HealthCounts() HealthCounts {
 	return ex.Metric().HealthCounts()
+}
+
+func (ex *Executor) Stats() sample.Sample {
+	return ex.Metric().Stats()
 }
