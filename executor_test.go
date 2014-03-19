@@ -18,11 +18,7 @@ func NewStringCommand(state string, fallbackState string) *Command {
 	command.state = state
 	command.fallbackState = fallbackState
 
-	//executor := NewExecutor(command)
-	//command.Executor = executor
-	//executor.circuit.minRequestThreshold = 3
-
-	return NewCommand(command)
+	return NewComandWithParams(command, 50.0, 3, 5)
 }
 
 func (c *StringCommand) Name() string {

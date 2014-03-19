@@ -30,9 +30,18 @@ func NewCommand(command Interface) *Command {
 	return &Command{command, executor}
 }
 
+func NewComandWithParams(command Interface, errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int) *Command {
+	executor := NewExecutorWithParams(command, errorThreshold, minimumNumberOfRequest, numberOfSecondsToStore)
+	return &Command{command, executor}
+}
+
 func NewExecutor(command Interface) *Executor {
-	metric := NewMetric(command.Group(), command.Name())
-	circuit := NewCircuit(metric, 50.0, 20)
+	return NewExecutorWithParams(command, 50.0, 20, 20)
+}
+
+func NewExecutorWithParams(command Interface, errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int) *Executor {
+	metric := NewMetricWithSecondsDuration(command.Group(), command.Name(), numberOfSecondsToStore)
+	circuit := NewCircuit(metric, errorThreshold, minimumNumberOfRequest)
 	return &Executor{command, metric, circuit}
 }
 
