@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+const (
+	alpha = 0.015 // alpha for the exponential decay distribution
+)
+
 var (
 	metrics = NewMetricsHolder()
 )
@@ -39,10 +43,10 @@ type Metric struct {
 }
 
 func NewMetric(group string, name string) *Metric {
-	return NewMetricWithSecondsDuration(group, name, 20)
+	return NewMetricWithParams(group, name, 20, 50)
 }
 
-func NewMetricWithSecondsDuration(group string, name string, numberOfSecondsToStore int) *Metric {
+func NewMetricWithParams(group string, name string, numberOfSecondsToStore int, sampleSize int) *Metric {
 	m, ok := Metrics().Get(group, name)
 	if ok {
 		return m
@@ -57,7 +61,7 @@ func NewMetricWithSecondsDuration(group string, name string, numberOfSecondsToSt
 	m.window = time.Duration(numberOfSecondsToStore) * time.Second
 	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)
 
-	m.sample = sample.NewExpDecaySample(50, 0.015)
+	m.sample = sample.NewExpDecaySample(sampleSize, alpha)
 
 	m.successChan = make(chan time.Duration)
 	m.failuresChan = make(chan struct{})

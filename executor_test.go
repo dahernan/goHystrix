@@ -18,7 +18,7 @@ func NewStringCommand(state string, fallbackState string) *Command {
 	command.state = state
 	command.fallbackState = fallbackState
 
-	return NewComandWithParams(command, 50.0, 3, 5)
+	return NewCommandWithParams(command, 50.0, 3, 5, 10)
 }
 
 func (c *StringCommand) Name() string {
