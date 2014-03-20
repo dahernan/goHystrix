@@ -62,7 +62,7 @@ func TestCircuitsHolder(t *testing.T) {
 
 func TestNewCircuit(t *testing.T) {
 	Convey("New Circuit register itself into the Circuit Holder", t, func() {
-		circuits := NewCircuitsHolder()
+		NewCircuitsHolder()
 
 		m1 := NewCircuitNoParams("testGroup1", "testKey1")
 		m2 := NewCircuitNoParams("testGroup1", "testKey2")
@@ -72,22 +72,23 @@ func TestNewCircuit(t *testing.T) {
 		fmt.Println(Circuits())
 		fmt.Println(Circuits().ToJSON())
 
-		value, ok := circuits.Get("testGroup1", "testKey1")
+		value, ok := Circuits().Get("testGroup1", "testKey1")
 		So(value, ShouldEqual, m1)
 		So(ok, ShouldBeTrue)
 
-		value, ok = circuits.Get("testGroup1", "testKey2")
+		value, ok = Circuits().Get("testGroup1", "testKey2")
 		So(value, ShouldEqual, m2)
 		So(ok, ShouldBeTrue)
 
-		value, ok = circuits.Get("testGroup2", "testKey1")
+		value, ok = Circuits().Get("testGroup2", "testKey1")
 		So(value, ShouldEqual, m3)
 		So(ok, ShouldBeTrue)
 
-		value, ok = circuits.Get("testGroup2", "testKey2")
+		value, ok = Circuits().Get("testGroup2", "testKey2")
 		So(value, ShouldEqual, m4)
 		So(ok, ShouldBeTrue)
 
+		fmt.Println("########################")
 		fmt.Println(Circuits().ToJSON())
 
 	})
