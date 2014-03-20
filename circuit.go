@@ -22,29 +22,30 @@ type CircuitHolder struct {
 	mutex    sync.RWMutex
 }
 
-func NewCircuit(group string, name string, metric *Metric, errorsThreshold float64, min int64) *CircuitBreaker {
+func NewCircuit(group string, name string, errorsThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *CircuitBreaker {
 	c, ok := Circuits().Get(group, name)
 	if ok {
 		return c
 	}
-	c = &CircuitBreaker{name: name, group: group, metric: metric, errorsThreshold: errorsThreshold, minRequestThreshold: min}
+	metric := NewMetricWithParams(numberOfSecondsToStore, numberOfSamplesToStore)
+	c = &CircuitBreaker{name: name, group: group, metric: metric, errorsThreshold: errorsThreshold, minRequestThreshold: minimumNumberOfRequest}
 
 	Circuits().Set(group, name, c)
 	return c
 
 }
 
-func (c *CircuitBreaker) IsOpen() bool {
+func (c *CircuitBreaker) IsOpen() (bool, string) {
 	counts := c.metric.HealthCounts()
 
 	if counts.Total < c.minRequestThreshold {
-		return false
+		return false, "CLOSE: not enought request"
 	}
 
 	if counts.ErrorPercentage >= c.errorsThreshold {
-		return true
+		return true, "OPEN: to many errors"
 	}
-	return false
+	return false, "CLOSE: all ok"
 }
 
 func (c *CircuitBreaker) Metric() *Metric {

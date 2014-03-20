@@ -50,8 +50,7 @@ func NewExecutor(command Interface) *Executor {
 }
 
 func NewExecutorWithParams(command Interface, errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *Executor {
-	metric := NewMetricWithParams(numberOfSecondsToStore, numberOfSamplesToStore)
-	circuit := NewCircuit(command.Group(), command.Name(), metric, errorThreshold, minimumNumberOfRequest)
+	circuit := NewCircuit(command.Group(), command.Name(), errorThreshold, minimumNumberOfRequest, numberOfSecondsToStore, numberOfSamplesToStore)
 	return &Executor{command, circuit}
 }
 
@@ -95,7 +94,8 @@ func (ex *Executor) doFallback() (interface{}, error) {
 }
 
 func (ex *Executor) Execute() (value interface{}, err error) {
-	if !ex.circuit.IsOpen() {
+	open, _ := ex.circuit.IsOpen()
+	if !open {
 		value, err = ex.doExecute()
 	} else {
 		value, err = ex.doFallback()
