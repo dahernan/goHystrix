@@ -1,6 +1,7 @@
 package goHystrix
 
 import (
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -55,6 +56,40 @@ func TestCircuitsHolder(t *testing.T) {
 			})
 
 		})
+	})
+
+}
+
+func TestNewCircuit(t *testing.T) {
+	Convey("New Circuit register itself into the Circuit Holder", t, func() {
+		circuits := NewCircuitsHolder()
+
+		m1 := NewCircuitNoParams("testGroup1", "testKey1")
+		m2 := NewCircuitNoParams("testGroup1", "testKey2")
+		m3 := NewCircuitNoParams("testGroup2", "testKey1")
+		m4 := NewCircuitNoParams("testGroup2", "testKey2")
+
+		fmt.Println(Circuits())
+		fmt.Println(Circuits().ToJSON())
+
+		value, ok := circuits.Get("testGroup1", "testKey1")
+		So(value, ShouldEqual, m1)
+		So(ok, ShouldBeTrue)
+
+		value, ok = circuits.Get("testGroup1", "testKey2")
+		So(value, ShouldEqual, m2)
+		So(ok, ShouldBeTrue)
+
+		value, ok = circuits.Get("testGroup2", "testKey1")
+		So(value, ShouldEqual, m3)
+		So(ok, ShouldBeTrue)
+
+		value, ok = circuits.Get("testGroup2", "testKey2")
+		So(value, ShouldEqual, m4)
+		So(ok, ShouldBeTrue)
+
+		fmt.Println(Circuits().ToJSON())
+
 	})
 
 }

@@ -190,3 +190,13 @@ func (m *Metric) Timeout() {
 func (m *Metric) Stats() sample.Sample {
 	return m.sample
 }
+
+func (m *Metric) LastFailure() time.Time {
+	return m.lastFailure
+}
+func (m *Metric) LastSuccess() time.Time {
+	return m.lastSuccess
+}
+func (m *Metric) LastTimeout() time.Time {
+	return m.lastTimeout
+}

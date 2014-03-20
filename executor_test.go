@@ -357,6 +357,9 @@ func TestMetrics(t *testing.T) {
 				So(y.HealthCounts().Failures, ShouldEqual, 2)
 				So(x.HealthCounts().Fallback, ShouldEqual, 1)
 				So(y.HealthCounts().Fallback, ShouldEqual, 1)
+
+				fmt.Println(x.circuit.ToJSON())
+
 			})
 
 		})
