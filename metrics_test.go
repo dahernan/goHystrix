@@ -9,81 +9,9 @@ import (
 	//"time"
 )
 
-func TestMetricsHolder(t *testing.T) {
-
-	Convey("Metrics Holder simple Get", t, func() {
-		metrics := NewMetricsHolder()
-		Convey("When Get is called in an empty map", func() {
-			value, ok := metrics.Get("testGroup", "testKey")
-			Convey("The result should be nil", func() {
-				So(value, ShouldBeNil)
-			})
-			Convey("The second returned value should be false", func() {
-				So(ok, ShouldBeFalse)
-			})
-
-		})
-	})
-
-	Convey("Set and Get logic", t, func() {
-		metrics := NewMetricsHolder()
-		Convey("When the metrics is filled with multiple values", func() {
-
-			m1 := &Metric{name: "1"}
-			m2 := &Metric{name: "2"}
-			m3 := &Metric{name: "3"}
-			m4 := &Metric{name: "4"}
-
-			metrics.Set("testGroup1", "testKey1", m1)
-			metrics.Set("testGroup1", "testKey2", m2)
-
-			metrics.Set("testGroup2", "testKey1", m3)
-			metrics.Set("testGroup2", "testKey2", m4)
-
-			Convey("Get return that values back", func() {
-				value, ok := metrics.Get("testGroup1", "testKey1")
-				So(value, ShouldEqual, m1)
-				So(ok, ShouldBeTrue)
-
-				value, ok = metrics.Get("testGroup1", "testKey2")
-				So(value, ShouldEqual, m2)
-				So(ok, ShouldBeTrue)
-
-				value, ok = metrics.Get("testGroup2", "testKey1")
-				So(value, ShouldEqual, m3)
-				So(ok, ShouldBeTrue)
-
-				value, ok = metrics.Get("testGroup2", "testKey2")
-				So(value, ShouldEqual, m4)
-				So(ok, ShouldBeTrue)
-
-			})
-
-		})
-	})
-
-}
-
-func TestMetric(t *testing.T) {
-	Convey("New Metrics are register in the metrics holder", t, func() {
-		metrics := Metrics()
-		Convey("When new metric is created", func() {
-			metric := NewMetric("group1", "test")
-			Convey("The metric holder should contain that metric", func() {
-				value, ok := metrics.Get("group1", "test")
-				So(value, ShouldEqual, metric)
-				So(ok, ShouldBeTrue)
-
-			})
-
-		})
-	})
-}
-
 func TestCountersSuccess(t *testing.T) {
 	Convey("Metric stores the success counter", t, func() {
-		Metrics()
-		metric := NewMetric("group1", "test")
+		metric := NewMetric()
 
 		metric.Success(1)
 		metric.Success(2)
@@ -115,8 +43,7 @@ func TestCountersSuccess(t *testing.T) {
 
 func TestCounters(t *testing.T) {
 	Convey("Metric stores the others counters", t, func() {
-		Metrics()
-		metric := NewMetric("group3", "test3")
+		metric := NewMetric()
 
 		metric.Success(1)
 		metric.Success(2)
@@ -166,8 +93,7 @@ func TestCounters(t *testing.T) {
 
 func TestRollingsCounters(t *testing.T) {
 	Convey("Metric stores the counters in buckets for rolling the counters", t, func() {
-		Metrics()
-		metric := NewMetricWithParams("group2", "test", 4, 10)
+		metric := NewMetricWithParams(4, 10)
 		fmt.Println("== metric.Success(1)")
 		metric.Success(1)
 		metric.Success(1)
@@ -217,8 +143,7 @@ func TestRollingsCounters(t *testing.T) {
 
 func TestMetricsKeepMessuaresSample(t *testing.T) {
 	Convey("Keep the stats of the duration for the successful results", t, func() {
-		Metrics()
-		metric := NewMetricWithParams("group123", "test", 4, 20)
+		metric := NewMetricWithParams(4, 20)
 		metric.Success(5)
 		metric.Success(1)
 		metric.Success(9)

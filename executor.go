@@ -21,7 +21,6 @@ type Command struct {
 
 type Executor struct {
 	command Interface
-	metric  *Metric
 	circuit *CircuitBreaker
 }
 
@@ -51,9 +50,9 @@ func NewExecutor(command Interface) *Executor {
 }
 
 func NewExecutorWithParams(command Interface, errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *Executor {
-	metric := NewMetricWithParams(command.Group(), command.Name(), numberOfSecondsToStore, numberOfSamplesToStore)
-	circuit := NewCircuit(metric, errorThreshold, minimumNumberOfRequest)
-	return &Executor{command, metric, circuit}
+	metric := NewMetricWithParams(numberOfSecondsToStore, numberOfSamplesToStore)
+	circuit := NewCircuit(command.Group(), command.Name(), metric, errorThreshold, minimumNumberOfRequest)
+	return &Executor{command, circuit}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {
@@ -81,7 +80,7 @@ func (ex *Executor) doExecute() (interface{}, error) {
 		return nil, err
 	case <-time.After(ex.command.Timeout()):
 		ex.Metric().Timeout()
-		return nil, fmt.Errorf("ERROR: Timeout!!")
+		return nil, fmt.Errorf("error: Timeout (%s), executing command %s:%s", ex.command.Timeout(), ex.command.Group(), ex.command.Name())
 	}
 
 }
@@ -122,7 +121,7 @@ func (ex *Executor) Queue() (chan interface{}, chan error) {
 }
 
 func (ex *Executor) Metric() *Metric {
-	return ex.metric
+	return ex.circuit.Metric()
 }
 
 func (ex *Executor) HealthCounts() HealthCounts {

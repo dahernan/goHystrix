@@ -2,7 +2,6 @@ package goHystrix
 
 import (
 	"github.com/dahernan/goHystrix/sample"
-	"sync"
 	"time"
 )
 
@@ -10,19 +9,7 @@ const (
 	alpha = 0.015 // alpha for the exponential decay distribution
 )
 
-var (
-	metrics = NewMetricsHolder()
-)
-
-type MetricsHolder struct {
-	metrics map[string]map[string]*Metric
-	mutex   sync.RWMutex
-}
-
 type Metric struct {
-	name  string
-	group string
-
 	successChan       chan time.Duration
 	failuresChan      chan struct{}
 	fallbackChan      chan struct{}
@@ -42,21 +29,12 @@ type Metric struct {
 	lastTimeout time.Time
 }
 
-func NewMetric(group string, name string) *Metric {
-	return NewMetricWithParams(group, name, 20, 50)
+func NewMetric() *Metric {
+	return NewMetricWithParams(20, 50)
 }
 
-func NewMetricWithParams(group string, name string, numberOfSecondsToStore int, sampleSize int) *Metric {
-	m, ok := Metrics().Get(group, name)
-	if ok {
-		return m
-	}
-
-	m = &Metric{}
-
-	m.name = name
-	m.group = group
-
+func NewMetricWithParams(numberOfSecondsToStore int, sampleSize int) *Metric {
+	m := &Metric{}
 	m.buckets = numberOfSecondsToStore
 	m.window = time.Duration(numberOfSecondsToStore) * time.Second
 	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)
@@ -71,7 +49,6 @@ func NewMetricWithParams(group string, name string, numberOfSecondsToStore int, 
 	m.countersChan = make(chan struct{})
 	m.countersOutChan = make(chan HealthCounts)
 
-	Metrics().Set(group, name, m)
 	go m.run()
 	return m
 
@@ -212,41 +189,4 @@ func (m *Metric) Timeout() {
 
 func (m *Metric) Stats() sample.Sample {
 	return m.sample
-}
-
-func NewMetricsHolder() *MetricsHolder {
-	return &MetricsHolder{metrics: make(map[string]map[string]*Metric)}
-}
-
-func Metrics() *MetricsHolder {
-	return metrics
-}
-func MetricsReset() {
-	metrics = NewMetricsHolder()
-}
-
-func (holder *MetricsHolder) Get(group string, name string) (*Metric, bool) {
-	holder.mutex.RLock()
-	defer holder.mutex.RUnlock()
-	metricValues, ok := holder.metrics[group]
-	if !ok {
-		return nil, ok
-	}
-
-	value, ok := metricValues[name]
-	return value, ok
-}
-
-func (holder *MetricsHolder) Set(group string, name string, value *Metric) {
-	holder.mutex.Lock()
-	defer holder.mutex.Unlock()
-
-	metricValues, ok := holder.metrics[group]
-	if !ok {
-		metricValues = make(map[string]*Metric)
-		holder.metrics[group] = metricValues
-	}
-
-	metricValues[name] = value
-
 }

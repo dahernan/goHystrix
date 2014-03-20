@@ -57,7 +57,7 @@ func (c *StringCommand) Fallback() (interface{}, error) {
 func TestRunString(t *testing.T) {
 
 	Convey("Command Run returns a string", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		okCommand := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Run is executed", func() {
@@ -78,7 +78,7 @@ func TestRunString(t *testing.T) {
 func TestRunError(t *testing.T) {
 
 	Convey("Command Run returns an error", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		errorCommand := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Run is executed", func() {
@@ -98,7 +98,7 @@ func TestRunError(t *testing.T) {
 func TestExecuteString(t *testing.T) {
 
 	Convey("Command Execute runs properly", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		okCommand := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Execute is called", func() {
@@ -119,7 +119,7 @@ func TestExecuteString(t *testing.T) {
 func TestFallback(t *testing.T) {
 
 	Convey("Command Execute uses the Fallback", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		errorCommand := NewStringCommand("error", "fallbackOk")
 
 		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
@@ -154,7 +154,7 @@ func TestFallback(t *testing.T) {
 func TestExecuteTimeout(t *testing.T) {
 
 	Convey("Command returns the fallback due to timeout", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
 		var result interface{}
@@ -163,6 +163,7 @@ func TestExecuteTimeout(t *testing.T) {
 		// 1
 		result, err = timeoutCommand.Execute()
 		So(err, ShouldNotBeNil)
+		//So(err, ShouldEqual, "error: Timeout, executing command testGroup:testCommand")
 		So(result, ShouldBeNil)
 
 		// 2
@@ -187,7 +188,7 @@ func TestExecuteTimeout(t *testing.T) {
 }
 func TestAsync(t *testing.T) {
 	Convey("Command run async and returns ok", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		okCommand := NewStringCommand("ok", "fallbackOk")
 
 		Convey("When Queue is called the result should be ok", func() {
@@ -211,7 +212,7 @@ func TestAsync(t *testing.T) {
 func TestAsyncFallback(t *testing.T) {
 
 	Convey("Command run async and returns the fallback", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		errorCommand := NewStringCommand("error", "fallbackOk")
 
 		Convey("When Queue is called 3 times, the next time runs the fallback", func() {
@@ -256,7 +257,7 @@ func TestAsyncTimeout(t *testing.T) {
 		var err error
 		var result interface{}
 
-		MetricsReset()
+		CircuitsReset()
 		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
 		// 1 timeout
@@ -295,7 +296,7 @@ func TestAsyncTimeout(t *testing.T) {
 func TestAsyncFallbackError(t *testing.T) {
 
 	Convey("Command run async and returns the fallback error after 3 times falling", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		fallbackErrorCommand := NewStringCommand("error", "fallbackError")
 
 		var err error
@@ -338,7 +339,7 @@ func TestAsyncFallbackError(t *testing.T) {
 
 func TestMetrics(t *testing.T) {
 	Convey("Command keep the metrics", t, func() {
-		MetricsReset()
+		CircuitsReset()
 		x := NewStringCommand("ok", "fallbackok")
 		y := NewStringCommand("error", "fallbackok")
 
