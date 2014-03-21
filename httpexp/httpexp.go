@@ -1,6 +1,7 @@
 package httpexp
 
 import (
+	"fmt"
 	"github.com/dahernan/goHystrix"
 	"net/http"
 )
