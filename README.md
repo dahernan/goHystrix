@@ -83,3 +83,21 @@ func TestString(t *testing.T) {
 }
 
 ```
+
+### Default circuit values when you create a command
+```
+errorPercetageThreshold - 50.0 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
+minimumNumberOfRequest - if total_calls < 20 the circuit will be close
+numberOfSecondsToStore - 20 seconds (for health counts you only evaluate the last 20 seconds of calls)
+numberOfSamplesToStore - 50 values (you store the duration of the 50 successful calls using reservoir sampling)
+```
+
+### You can customize the default values when you invoke 
+```go
+
+// errorPercetageThreshold - 60.0
+// minimumNumberOfRequest - 3
+// numberOfSecondsToStore - 5
+// numberOfSamplesToStore - 10
+NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
+```
