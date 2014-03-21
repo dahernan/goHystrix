@@ -101,3 +101,11 @@ numberOfSamplesToStore - 50 values (you store the duration of the 50 successful 
 // numberOfSamplesToStore - 10
 NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
 ```
+
+### Exposes all circuits information by http in "http://<host>/debug/circuits" in JSON format
+```go
+import	_ "github.com/dahernan/goHystrix/httpexp"
+```
+
+
+
