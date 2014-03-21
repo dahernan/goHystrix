@@ -56,4 +56,6 @@ func TestString(t *testing.T) {
 	fmt.Println("Succesfull Calls ", command.HealthCounts().Success)
 	fmt.Println("Mean: ", command.Stats().Mean())
 
+	fmt.Println("All the circuits in JSON format: ", Circuits().ToJSON())
+
 }

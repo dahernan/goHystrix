@@ -55,7 +55,7 @@ func (c *MyStringCommand) Fallback() (interface{}, error) {
 func TestString(t *testing.T) {
 
 	// Sync execution
-	command := NewCommand(&MyStringCommand{"helloooooooo"})
+	command := goHystrix.NewCommand(&MyStringCommand{"helloooooooo"})
 	value, err := command.Execute()
 
 	fmt.Println("Sync call ---- ")
@@ -76,6 +76,9 @@ func TestString(t *testing.T) {
 
 	fmt.Println("Succesfull Calls ", command.HealthCounts().Success)
 	fmt.Println("Mean: ", command.Stats().Mean())
+
+	fmt.Println("All the circuits in JSON format: ", goHystrix.Circuits().ToJSON())
+
 
 }
 
