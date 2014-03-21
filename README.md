@@ -92,7 +92,7 @@ numberOfSecondsToStore - 20 seconds (for health counts you only evaluate the las
 numberOfSamplesToStore - 50 values (you store the duration of the 50 successful calls using reservoir sampling)
 ```
 
-### You can customize the default values when you invoke 
+### You can customize the default values when you create the command
 ```go
 
 // errorPercetageThreshold - 60.0
