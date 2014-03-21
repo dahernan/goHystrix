@@ -32,30 +32,36 @@ type MyStringCommand struct {
 	message string
 }
 
+// name of your command 
 func (c *MyStringCommand) Name() string {
-	return "stringMessage"
+	return "stringMessageCommand"
 }
 
+// group of the command, it's good for keep related commands together 
 func (c *MyStringCommand) Group() string {
 	return "stringGroup"
 }
 
+// timeout for the command Run
 func (c *MyStringCommand) Timeout() time.Duration {
 	return 3 * time.Millisecond
 }
 
+// This is the normal method to execute (circuit is close) 
 func (c *MyStringCommand) Run() (interface{}, error) {
 	return c.message, nil
 }
 
+// This is the method to execute in case the circuit is open
 func (c *MyStringCommand) Fallback() (interface{}, error) {
 	return "FALLBACK", nil
 }
 
 func TestString(t *testing.T) {
-
-	// Sync execution
+	// creates a new command
 	command := goHystrix.NewCommand(&MyStringCommand{"helloooooooo"})
+	
+	// Sync execution
 	value, err := command.Execute()
 
 	fmt.Println("Sync call ---- ")
@@ -86,10 +92,10 @@ func TestString(t *testing.T) {
 
 ### Default circuit values when you create a command
 ```
-errorPercetageThreshold - 50.0 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
+errorPercetageThreshold - 50.0 - If (number_of_errors / total_calls * 100) > 50.0 the circuit will be open
 minimumNumberOfRequest - if total_calls < 20 the circuit will be close
 numberOfSecondsToStore - 20 seconds (for health counts you only evaluate the last 20 seconds of calls)
-numberOfSamplesToStore - 50 values (you store the duration of the 50 successful calls using reservoir sampling)
+numberOfSamplesToStore - 50 values (you store the duration of 50 successful calls using reservoir sampling)
 ```
 
 ### You can customize the default values when you create the command
@@ -99,7 +105,7 @@ numberOfSamplesToStore - 50 values (you store the duration of the 50 successful 
 // minimumNumberOfRequest - 3
 // numberOfSecondsToStore - 5
 // numberOfSamplesToStore - 10
-NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
+goHystrix.NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
 ```
 
 ### Exposes all circuits information by http in "http://<host>/debug/circuits" in JSON format
