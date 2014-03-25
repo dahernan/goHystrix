@@ -7,6 +7,51 @@ import (
 	"time"
 )
 
+type NoFallbackCommand struct {
+	state string
+}
+
+func (cmd *NoFallbackCommand) Name() string           { return "nofallbackCmd" }
+func (cmd *NoFallbackCommand) Group() string          { return "testGroup" }
+func (cmd *NoFallbackCommand) Timeout() time.Duration { return 3 * time.Second }
+func (cmd *NoFallbackCommand) Run() (interface{}, error) {
+	return "", fmt.Errorf(cmd.state)
+}
+
+func TestRunNoFallback(t *testing.T) {
+	Convey("Command Execute errors directly, without fallback implementation", t, func() {
+		CircuitsReset()
+		errorCommand := NewCommandWithParams(&NoFallbackCommand{"error"}, 50.0, 3, 5, 10)
+
+		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
+			var result interface{}
+			var err error
+
+			// 1
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+
+			// 2
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+
+			//3
+			result, err = errorCommand.Execute()
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+
+			// 4 limit reached, falling back
+			result, err = errorCommand.Execute()
+			So(err.Error(), ShouldEqual, "No fallback implementation available for nofallbackCmd")
+			So(result, ShouldBeNil)
+			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
+
+		})
+	})
+}
+
 type StringCommand struct {
 	state         string
 	fallbackState string

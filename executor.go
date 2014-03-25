@@ -8,10 +8,14 @@ import (
 
 type Interface interface {
 	Run() (interface{}, error)
-	Fallback() (interface{}, error)
 	Timeout() time.Duration
 	Name() string
 	Group() string
+}
+
+type FallbackInterface interface {
+	Interface
+	Fallback() (interface{}, error)
 }
 
 type Command struct {
@@ -86,11 +90,17 @@ func (ex *Executor) doExecute() (interface{}, error) {
 
 func (ex *Executor) doFallback() (interface{}, error) {
 	ex.Metric().Fallback()
-	value, err := ex.command.Fallback()
-	if err != nil {
+
+	if fbCmd, ok := ex.command.(FallbackInterface); ok {
+		value, err := fbCmd.Fallback()
+		if err != nil {
+			ex.Metric().FallbackError()
+		}
+		return value, err
+	} else {
 		ex.Metric().FallbackError()
+		return nil, fmt.Errorf("No fallback implementation available for %s", ex.command.Name())
 	}
-	return value, err
 }
 
 func (ex *Executor) Execute() (value interface{}, err error) {
