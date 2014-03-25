@@ -62,11 +62,10 @@ func (ex *Executor) doExecute() (interface{}, error) {
 		start := time.Now()
 		value, err := ex.command.Run()
 		elapsed = time.Since(start)
-		if value != nil {
-			valueChan <- value
-		}
 		if err != nil {
 			errorChan <- err
+		} else if value != nil {
+			valueChan <- value
 		}
 	}()
 
