@@ -96,6 +96,10 @@ func (ex *Executor) Execute() (value interface{}, err error) {
 	open, _ := ex.circuit.IsOpen()
 	if !open {
 		value, err = ex.doExecute()
+		// TODO log error ???????
+		if err != nil {
+			value, err = ex.doFallback()
+		}
 	} else {
 		value, err = ex.doFallback()
 	}

@@ -116,38 +116,72 @@ func TestExecuteString(t *testing.T) {
 	})
 }
 
-func TestFallback(t *testing.T) {
-
-	Convey("Command Execute uses the Fallback", t, func() {
+func TestFallbackForError(t *testing.T) {
+	Convey("Command Execute uses the Fallback if an error is returned", t, func() {
 		CircuitsReset()
 		errorCommand := NewStringCommand("error", "fallbackOk")
 
-		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
-			var result interface{}
-			var err error
+		var result interface{}
+		var err error
 
-			// 1
-			result, err = errorCommand.Execute()
-			So(err, ShouldNotBeNil)
-			So(result, ShouldBeNil)
+		// 1
+		result, err = errorCommand.Execute()
+		So(err, ShouldBeNil)
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason := errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+		So(errorCommand.HealthCounts().Failures, ShouldEqual, 1)
+		So(errorCommand.HealthCounts().Fallback, ShouldEqual, 1)
+	})
+}
 
-			// 2
-			result, err = errorCommand.Execute()
-			So(err, ShouldNotBeNil)
-			So(result, ShouldBeNil)
+func TestFallbackForTimeout(t *testing.T) {
+	Convey("Command Execute uses the Fallback if a timeout is returned", t, func() {
+		CircuitsReset()
+		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
-			//3
-			result, err = errorCommand.Execute()
-			So(err, ShouldNotBeNil)
-			So(result, ShouldBeNil)
+		var result interface{}
+		var err error
 
-			// 4 limit reached, falling back
-			result, err = errorCommand.Execute()
-			So(err, ShouldBeNil)
-			So(result, ShouldEqual, "FALLBACK")
-			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
+		// 1
+		result, err = timeoutCommand.Execute()
+		So(err, ShouldBeNil)
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason := timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+		So(timeoutCommand.HealthCounts().Timeouts, ShouldEqual, 1)
+		So(timeoutCommand.HealthCounts().Fallback, ShouldEqual, 1)
+	})
+}
 
-		})
+func TestFallback(t *testing.T) {
+
+	Convey("Command Execute failing for 3 times, opens the circuit", t, func() {
+		CircuitsReset()
+		errorCommand := NewStringCommand("error", "fallbackOk")
+
+		// 1
+		errorCommand.Execute()
+		open, reason := errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+
+		// 2
+		errorCommand.Execute()
+		open, reason = errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+
+		//3
+		errorCommand.Execute()
+		// limit reached
+		open, reason = errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "OPEN: to many errors")
+		So(open, ShouldBeTrue)
+		So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
+
 	})
 }
 
@@ -157,29 +191,24 @@ func TestExecuteTimeout(t *testing.T) {
 		CircuitsReset()
 		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
-		var result interface{}
-		var err error
-
 		// 1
-		result, err = timeoutCommand.Execute()
-		So(err, ShouldNotBeNil)
-		//So(err, ShouldEqual, "error: Timeout, executing command testGroup:testCommand")
-		So(result, ShouldBeNil)
+		timeoutCommand.Execute()
+		open, reason := timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
 		// 2
-		result, err = timeoutCommand.Execute()
-		So(err, ShouldNotBeNil)
-		So(result, ShouldBeNil)
+		timeoutCommand.Execute()
+		open, reason = timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
 		//3
-		result, err = timeoutCommand.Execute()
-		So(err, ShouldNotBeNil)
-		So(result, ShouldBeNil)
-
-		// 4 limit reached, falling back
-		result, err = timeoutCommand.Execute()
-		So(err, ShouldBeNil)
-		So(result, ShouldEqual, "FALLBACK")
+		timeoutCommand.Execute()
+		// limit reached
+		open, reason = timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "OPEN: to many errors")
+		So(open, ShouldBeTrue)
 		So(timeoutCommand.HealthCounts().Failures, ShouldEqual, 3)
 		So(timeoutCommand.HealthCounts().Timeouts, ShouldEqual, 3)
 
@@ -191,148 +220,105 @@ func TestAsync(t *testing.T) {
 		CircuitsReset()
 		okCommand := NewStringCommand("ok", "fallbackOk")
 
-		Convey("When Queue is called the result should be ok", func() {
-			resultChan, errorChan := okCommand.Queue()
-			var err error
-			var result interface{}
-			select {
-			case result = <-resultChan:
-				err = nil
-			case err = <-errorChan:
-				result = nil
-			}
+		resultChan, errorChan := okCommand.Queue()
+		var err error
+		var result interface{}
+		select {
+		case result = <-resultChan:
+			err = nil
+		case err = <-errorChan:
+			result = nil
+		}
 
-			So(result, ShouldEqual, "hello hystrix world")
-			So(err, ShouldBeNil)
+		So(result, ShouldEqual, "hello hystrix world")
+		So(err, ShouldBeNil)
 
-		})
 	})
 }
 
 func TestAsyncFallback(t *testing.T) {
 
-	Convey("Command run async and returns the fallback", t, func() {
+	Convey("Command run async, and if it's failing 3 times, the Circuit will be open", t, func() {
 		CircuitsReset()
 		errorCommand := NewStringCommand("error", "fallbackOk")
 
-		Convey("When Queue is called 3 times, the next time runs the fallback", func() {
-			var err error
-			var result interface{}
+		var result interface{}
 
-			// 1 fail
-			resultChan, errorChan := errorCommand.Queue()
-			err = <-errorChan
-			So(err, ShouldNotBeNil)
+		// 1 fail
+		resultChan, _ := errorCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason := errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
-			// 2  fail
-			resultChan, errorChan = errorCommand.Queue()
-			err = <-errorChan
-			So(err, ShouldNotBeNil)
+		// 2  fail
+		resultChan, _ = errorCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason = errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
-			// 3 fail
-			resultChan, errorChan = errorCommand.Queue()
-			err = <-errorChan
-			So(err, ShouldNotBeNil)
+		// 3 fail
+		resultChan, _ = errorCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 
-			// 4 falling back
-			resultChan, errorChan = errorCommand.Queue()
+		// limit reached
+		open, reason = errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "OPEN: to many errors")
+		So(open, ShouldBeTrue)
 
-			select {
-			case result = <-resultChan:
-				err = nil
-			case err = <-errorChan:
-				result = nil
-			}
+		// 4 falling back
+		resultChan, _ = errorCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 
-			So(err, ShouldBeNil)
-			So(result, ShouldEqual, "FALLBACK")
-			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
-
-		})
 	})
 }
 
 func TestAsyncTimeout(t *testing.T) {
-	Convey("Command run async and returns the fallback due a timeout error", t, func() {
-		var err error
+	Convey("Command run async and if it is timeouting for 3 times the Circuit will be open", t, func() {
 		var result interface{}
 
 		CircuitsReset()
 		timeoutCommand := NewStringCommand("timeout", "fallbackOk")
 
 		// 1 timeout
-		resultChan, errorChan := timeoutCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
+		resultChan, _ := timeoutCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason := timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
 		// 2 timeout
-		resultChan, errorChan = timeoutCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
+		resultChan, _ = timeoutCommand.Queue()
+		result = <-resultChan
+
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason = timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
 
 		// 3 timeout
-		resultChan, errorChan = timeoutCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
+		resultChan, _ = timeoutCommand.Queue()
+		result = <-resultChan
+		So(result, ShouldEqual, "FALLBACK")
+		open, reason = timeoutCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "OPEN: to many errors")
+		So(open, ShouldBeTrue)
 
 		// 4 falling back
-		resultChan, errorChan = timeoutCommand.Queue()
+		resultChan, _ = timeoutCommand.Queue()
+		result = <-resultChan
 
-		select {
-		case result = <-resultChan:
-			err = nil
-		case err = <-errorChan:
-			result = nil
-		}
-
-		So(err, ShouldBeNil)
 		So(result, ShouldEqual, "FALLBACK")
 		So(timeoutCommand.HealthCounts().Failures, ShouldEqual, 3)
 		So(timeoutCommand.HealthCounts().Timeouts, ShouldEqual, 3)
-	})
-
-}
-
-func TestAsyncFallbackError(t *testing.T) {
-
-	Convey("Command run async and returns the fallback error after 3 times falling", t, func() {
-		CircuitsReset()
-		fallbackErrorCommand := NewStringCommand("error", "fallbackError")
-
-		var err error
-		var result interface{}
-
-		// 1 fail
-		resultChan, errorChan := fallbackErrorCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
-
-		// 2 fail
-		resultChan, errorChan = fallbackErrorCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
-
-		// 3 fail
-		resultChan, errorChan = fallbackErrorCommand.Queue()
-		err = <-errorChan
-		So(err, ShouldNotBeNil)
-
-		// 4 falling back error
-		resultChan, errorChan = fallbackErrorCommand.Queue()
-
-		select {
-		case result = <-resultChan:
-			err = nil
-		case err = <-errorChan:
-			result = nil
-		}
-
-		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
-		So(result, ShouldBeNil)
-		So(fallbackErrorCommand.HealthCounts().Failures, ShouldEqual, 3)
-		So(fallbackErrorCommand.HealthCounts().FallbackErrors, ShouldEqual, 1)
-		So(fallbackErrorCommand.HealthCounts().Timeouts, ShouldEqual, 0)
-
 	})
 
 }
@@ -343,7 +329,7 @@ func TestMetrics(t *testing.T) {
 		x := NewStringCommand("ok", "fallbackok")
 		y := NewStringCommand("error", "fallbackok")
 
-		Convey("When Execute is called 2 times the counters are updated", func() {
+		Convey("When Execute is called multiple times the counters are updated", func() {
 			x.Execute() // success
 			x.Execute() // success
 			y.Execute() // error
@@ -355,8 +341,8 @@ func TestMetrics(t *testing.T) {
 				So(y.HealthCounts().Success, ShouldEqual, 2)
 				So(x.HealthCounts().Failures, ShouldEqual, 2)
 				So(y.HealthCounts().Failures, ShouldEqual, 2)
-				So(x.HealthCounts().Fallback, ShouldEqual, 1)
-				So(y.HealthCounts().Fallback, ShouldEqual, 1)
+				So(x.HealthCounts().Fallback, ShouldEqual, 3)
+				So(y.HealthCounts().Fallback, ShouldEqual, 3)
 
 				fmt.Println(x.circuit.ToJSON())
 
