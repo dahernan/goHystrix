@@ -12,10 +12,18 @@ How to use
 ```go
 type Interface interface {
 	Run() (interface{}, error)
-	Fallback() (interface{}, error)
 	Timeout() time.Duration
 	Name() string
 	Group() string
+}
+```
+
+There is also a `goHystrix.FallbackInterface`, if you need a fallback function:
+
+```
+type FallbackInterface interface {
+	Interface
+	Fallback() (interface{}, error)
 }
 ```
 
