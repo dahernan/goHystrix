@@ -7,6 +7,73 @@ import (
 	"time"
 )
 
+type ResultCommand struct {
+	result interface{}
+	err    error
+
+	shouldPanic bool
+}
+
+func (rc *ResultCommand) Name() string           { return "ResultCommand" }
+func (rc *ResultCommand) Group() string          { return "testGroup" }
+func (rc *ResultCommand) Timeout() time.Duration { return 60 * time.Second }
+func (rc *ResultCommand) Run() (interface{}, error) {
+	if rc.shouldPanic {
+		panic("I must panic!")
+	}
+	return rc.result, rc.err
+}
+
+func TestRunErrors(t *testing.T) {
+	Convey("Command returns basic value, no error", t, func() {
+		CircuitsReset()
+		command := NewCommandWithParams(&ResultCommand{"result", nil, false}, 50.0, 3, 5, 10)
+
+		Convey("run", func() {
+			result, err := command.Execute()
+
+			So(err, ShouldBeNil)
+			So(result, ShouldEqual, "result")
+		})
+	})
+
+	Convey("Command returns nil, nil", t, func() {
+		CircuitsReset()
+		command := NewCommandWithParams(&ResultCommand{nil, nil, false}, 50.0, 3, 5, 10)
+
+		Convey("run", func() {
+			result, err := command.Execute()
+
+			So(err, ShouldBeNil)
+			So(result, ShouldBeNil)
+		})
+	})
+
+	Convey("Command returns value, error", t, func() {
+		CircuitsReset()
+		command := NewCommandWithParams(&ResultCommand{"result", fmt.Errorf("some error"), false}, 50.0, 3, 5, 10)
+
+		Convey("run", func() {
+			result, err := command.Execute()
+
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+		})
+	})
+
+	Convey("Command panics!", t, func() {
+		CircuitsReset()
+		command := NewCommandWithParams(&ResultCommand{nil, nil, true}, 50.0, 3, 5, 10)
+
+		Convey("run", func() {
+			result, err := command.Execute()
+
+			So(err, ShouldNotBeNil)
+			So(result, ShouldBeNil)
+		})
+	})
+}
+
 type NoFallbackCommand struct {
 	state string
 }
