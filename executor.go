@@ -63,12 +63,17 @@ func (ex *Executor) doExecute() (interface{}, error) {
 	errorChan := make(chan error, 1)
 	var elapsed time.Duration
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				errorChan <- fmt.Errorf("Recovered from panic: %v", r)
+			}
+		}()
 		start := time.Now()
 		value, err := ex.command.Run()
 		elapsed = time.Since(start)
 		if err != nil {
 			errorChan <- err
-		} else if value != nil {
+		} else {
 			valueChan <- value
 		}
 	}()
