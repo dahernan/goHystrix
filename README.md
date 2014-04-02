@@ -20,7 +20,7 @@ type Interface interface {
 
 There is also a `goHystrix.FallbackInterface`, if you need a fallback function:
 
-```
+```go
 type FallbackInterface interface {
 	Interface
 	Fallback() (interface{}, error)
