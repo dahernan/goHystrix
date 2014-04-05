@@ -65,6 +65,7 @@ func (ex *Executor) doExecute() (interface{}, error) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				ex.Metric().Panic()
 				errorChan <- fmt.Errorf("Recovered from panic: %v", r)
 			}
 		}()

@@ -87,6 +87,7 @@ func (c *CircuitBreaker) ToJSON() string {
 	fmt.Fprintf(&buffer, "\"failures\" : \"%d\",\n", counts.Failures)
 	fmt.Fprintf(&buffer, "\"timeouts\" : \"%d\",\n", counts.Timeouts)
 	fmt.Fprintf(&buffer, "\"fallback\" : \"%d\",\n", counts.Fallback)
+	fmt.Fprintf(&buffer, "\"panics\" : \"%d\",\n", counts.Panics)
 	fmt.Fprintf(&buffer, "\"fallbackErrors\" : \"%d\",\n", counts.FallbackErrors)
 	fmt.Fprintf(&buffer, "\"total\" : \"%d\",\n", counts.Total)
 	fmt.Fprintf(&buffer, "\"success\" : \"%d\",\n", counts.Success)

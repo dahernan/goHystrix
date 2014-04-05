@@ -15,6 +15,7 @@ type Metric struct {
 	fallbackChan      chan struct{}
 	fallbackErrorChan chan struct{}
 	timeoutsChan      chan struct{}
+	panicChan         chan struct{}
 	countersChan      chan struct{}
 	countersOutChan   chan HealthCounts
 
@@ -46,6 +47,7 @@ func NewMetricWithParams(numberOfSecondsToStore int, sampleSize int) *Metric {
 	m.fallbackChan = make(chan struct{})
 	m.fallbackErrorChan = make(chan struct{})
 	m.timeoutsChan = make(chan struct{})
+	m.panicChan = make(chan struct{})
 	m.countersChan = make(chan struct{})
 	m.countersOutChan = make(chan HealthCounts)
 
@@ -60,6 +62,7 @@ type HealthCountsBucket struct {
 	Fallback       int64
 	FallbackErrors int64
 	Timeouts       int64
+	Panics         int64
 	lastWrite      time.Time
 }
 
@@ -75,6 +78,7 @@ func (c *HealthCountsBucket) Reset() {
 	c.Fallback = 0
 	c.FallbackErrors = 0
 	c.Timeouts = 0
+	c.Panics = 0
 }
 
 func (m *Metric) run() {
@@ -90,6 +94,8 @@ func (m *Metric) run() {
 			m.doFallback()
 		case <-m.fallbackErrorChan:
 			m.doFallbackError()
+		case <-m.panicChan:
+			m.doPanic()
 		case <-m.countersChan:
 			m.countersOutChan <- m.doHealthCounts()
 			//case <-time.After(2 * time.Second):
@@ -142,6 +148,10 @@ func (m *Metric) doFallbackError() {
 	m.bucket().FallbackErrors++
 }
 
+func (m *Metric) doPanic() {
+	m.bucket().Panics++
+}
+
 func (m *Metric) doHealthCounts() (counters HealthCounts) {
 	now := time.Now()
 	for _, value := range m.values {
@@ -151,6 +161,7 @@ func (m *Metric) doHealthCounts() (counters HealthCounts) {
 			counters.Fallback += value.Fallback
 			counters.FallbackErrors += value.FallbackErrors
 			counters.Timeouts += value.Timeouts
+			counters.Panics += value.Panics
 		}
 	}
 	counters.Total = counters.Success + counters.Failures
@@ -185,6 +196,10 @@ func (m *Metric) FallbackError() {
 
 func (m *Metric) Timeout() {
 	m.timeoutsChan <- struct{}{}
+}
+
+func (m *Metric) Panic() {
+	m.panicChan <- struct{}{}
 }
 
 func (m *Metric) Stats() sample.Sample {

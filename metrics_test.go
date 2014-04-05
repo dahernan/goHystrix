@@ -114,6 +114,7 @@ func TestRollingsCounters(t *testing.T) {
 		metric.Fallback()
 		metric.FallbackError()
 		metric.Timeout()
+		metric.Panic()
 
 		metric.Success(3)
 		time.Sleep(1 * time.Second)
@@ -125,6 +126,7 @@ func TestRollingsCounters(t *testing.T) {
 		metric.Fallback()
 		metric.FallbackError()
 		metric.Timeout()
+		metric.Panic()
 
 		c1 := metric.HealthCounts()
 
@@ -135,6 +137,7 @@ func TestRollingsCounters(t *testing.T) {
 		So(c1.Timeouts, ShouldEqual, 2)
 		So(c1.Fallback, ShouldEqual, 2)
 		So(c1.FallbackErrors, ShouldEqual, 2)
+		So(c1.Panics, ShouldEqual, 2)
 		So(c1.Total, ShouldEqual, 11)
 		So(c1.ErrorPercentage, ShouldEqual, 63.63636363636363)
 

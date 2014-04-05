@@ -70,6 +70,7 @@ func TestRunErrors(t *testing.T) {
 
 			So(err, ShouldNotBeNil)
 			So(result, ShouldBeNil)
+			So(command.Metric().HealthCounts().Panics, ShouldEqual, 1)
 		})
 	})
 }
