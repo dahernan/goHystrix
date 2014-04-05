@@ -393,6 +393,44 @@ func TestAsyncFallback(t *testing.T) {
 	})
 }
 
+func TestAsyncFallbackError(t *testing.T) {
+
+	Convey("Command run async, and the fallback returns errors, the Circuit will be open", t, func() {
+		CircuitsReset()
+		errorCommand := NewStringCommand("error", "fallbackError")
+
+		var err error
+
+		// 1 fail
+		_, errorChan := errorCommand.Queue()
+		err = <-errorChan
+		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		open, reason := errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+
+		// 2  fail
+		_, errorChan = errorCommand.Queue()
+		err = <-errorChan
+		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		open, reason = errorCommand.circuit.IsOpen()
+		So(reason, ShouldEqual, "CLOSE: not enought request")
+		So(open, ShouldBeFalse)
+
+		// 3 fail
+		_, errorChan = errorCommand.Queue()
+		err = <-errorChan
+		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		open, reason = errorCommand.circuit.IsOpen()
+		So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
+		So(errorCommand.HealthCounts().FallbackErrors, ShouldEqual, 3)
+
+		// limit reached
+		So(reason, ShouldEqual, "OPEN: to many errors")
+		So(open, ShouldBeTrue)
+	})
+}
+
 func TestAsyncTimeout(t *testing.T) {
 	Convey("Command run async and if it is timeouting for 3 times the Circuit will be open", t, func() {
 		var result interface{}
