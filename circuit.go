@@ -144,7 +144,7 @@ func (holder *CircuitHolder) ToJSON() string {
 
 	var buffer bytes.Buffer
 
-	buffer.WriteString("{\n")
+	buffer.WriteString("[\n")
 
 	first := true
 	for group, names := range holder.circuits {
@@ -153,7 +153,8 @@ func (holder *CircuitHolder) ToJSON() string {
 		}
 		first = false
 		nested_first := true
-		fmt.Fprintf(&buffer, "\"%s\" : [\n", group)
+		fmt.Fprintf(&buffer, "{\"group\" : \"%s\",\n", group)
+		fmt.Fprintf(&buffer, "\"circuit\" : [\n")
 		for _, circuit := range names {
 			if !nested_first {
 				fmt.Fprintf(&buffer, ",\n")
@@ -161,9 +162,9 @@ func (holder *CircuitHolder) ToJSON() string {
 			nested_first = false
 			buffer.WriteString(circuit.ToJSON())
 		}
-		fmt.Fprintf(&buffer, "]\n")
+		fmt.Fprintf(&buffer, "] }\n")
 	}
 
-	buffer.WriteString("\n}")
+	buffer.WriteString("\n]")
 	return buffer.String()
 }
