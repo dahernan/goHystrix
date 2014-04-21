@@ -2,14 +2,28 @@ package goHystrix
 
 import (
 	"github.com/dahernan/goHystrix/sample"
-	//"github.com/dahernan/goHystrix/statsd"
-
 	"time"
 )
 
 const (
 	alpha = 0.015 // alpha for the exponential decay distribution
 )
+
+var (
+	metricsExporter MetricExport
+)
+
+func init() {
+	metricsExporter = NewNilExport()
+}
+
+func Exporter() MetricExport {
+	return metricsExporter
+}
+
+func SetExporter(export MetricExport) {
+	metricsExporter = export
+}
 
 type Metric struct {
 	name  string
@@ -33,6 +47,15 @@ type Metric struct {
 	lastFailure time.Time
 	lastSuccess time.Time
 	lastTimeout time.Time
+}
+
+type MetricExport interface {
+	Success(group string, name string, duration time.Duration)
+	Fail(group string, name string)
+	Fallback(group string, name string)
+	FallbackError(group string, name string)
+	Timeout(group string, name string)
+	Panic(group string, name string)
 }
 
 func NewMetric(group string, name string) *Metric {
@@ -132,15 +155,19 @@ func (m *Metric) doSuccess(duration time.Duration) {
 	go func(d time.Duration) {
 		m.sample.Update(int64(d))
 	}(duration)
+
+	Exporter().Success(m.group, m.name, duration)
 }
 
 func (m *Metric) doFail() {
 	m.bucket().Failures++
 	m.lastFailure = time.Now()
+	Exporter().Fail(m.group, m.name)
 }
 
 func (m *Metric) doFallback() {
 	m.bucket().Fallback++
+	Exporter().Fallback(m.group, m.name)
 }
 
 func (m *Metric) doTimeout() {
@@ -149,14 +176,17 @@ func (m *Metric) doTimeout() {
 	now := time.Now()
 	m.lastFailure = now
 	m.lastTimeout = now
+	Exporter().Timeout(m.group, m.name)
 }
 
 func (m *Metric) doFallbackError() {
 	m.bucket().FallbackErrors++
+	Exporter().FallbackError(m.group, m.name)
 }
 
 func (m *Metric) doPanic() {
 	m.bucket().Panics++
+	Exporter().Panic(m.group, m.name)
 }
 
 func (m *Metric) doHealthCounts() (counters HealthCounts) {
