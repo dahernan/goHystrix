@@ -2,6 +2,8 @@ package goHystrix
 
 import (
 	"github.com/dahernan/goHystrix/sample"
+	//"github.com/dahernan/goHystrix/statsd"
+
 	"time"
 )
 
@@ -10,6 +12,9 @@ const (
 )
 
 type Metric struct {
+	name  string
+	group string
+
 	successChan       chan time.Duration
 	failuresChan      chan struct{}
 	fallbackChan      chan struct{}
@@ -30,12 +35,14 @@ type Metric struct {
 	lastTimeout time.Time
 }
 
-func NewMetric() *Metric {
-	return NewMetricWithParams(20, 50)
+func NewMetric(group string, name string) *Metric {
+	return NewMetricWithParams(group, name, 20, 50)
 }
 
-func NewMetricWithParams(numberOfSecondsToStore int, sampleSize int) *Metric {
+func NewMetricWithParams(group string, name string, numberOfSecondsToStore int, sampleSize int) *Metric {
 	m := &Metric{}
+	m.name = name
+	m.group = group
 	m.buckets = numberOfSecondsToStore
 	m.window = time.Duration(numberOfSecondsToStore) * time.Second
 	m.values = make([]HealthCountsBucket, m.buckets, m.buckets)

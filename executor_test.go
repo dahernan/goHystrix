@@ -112,7 +112,7 @@ func TestRunNoFallback(t *testing.T) {
 
 			// 4 limit reached, falling back
 			result, err = errorCommand.Execute()
-			So(err.Error(), ShouldEqual, "No fallback implementation available for nofallbackCmd")
+			So(err.Error(), ShouldEqual, "[testGroup:nofallbackCmd] FallbackError: No fallback implementation available for nofallbackCmd")
 			So(result, ShouldBeNil)
 			So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 
@@ -298,6 +298,19 @@ func TestFallback(t *testing.T) {
 	})
 }
 
+func TestFallbackError(t *testing.T) {
+
+	Convey("Command Execute the fallback and it returns the fallback error and the nested error", t, func() {
+		CircuitsReset()
+		errorCommand := NewStringCommand("error", "fallbackError")
+
+		_, err := errorCommand.Execute()
+		errorText := "[testGroup:testCommand] FallbackError: ERROR: error doing fallback RunError: ERROR: this method is mend to fail"
+		So(err.Error(), ShouldEqual, errorText)
+
+	})
+}
+
 func TestExecuteTimeout(t *testing.T) {
 
 	Convey("Command returns the fallback due to timeout", t, func() {
@@ -404,7 +417,9 @@ func TestAsyncFallbackError(t *testing.T) {
 		// 1 fail
 		_, errorChan := errorCommand.Queue()
 		err = <-errorChan
-		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+
+		errorText := "[testGroup:testCommand] FallbackError: ERROR: error doing fallback RunError: ERROR: this method is mend to fail"
+		So(err.Error(), ShouldEqual, errorText)
 		open, reason := errorCommand.circuit.IsOpen()
 		So(reason, ShouldEqual, "CLOSE: not enought request")
 		So(open, ShouldBeFalse)
@@ -412,7 +427,7 @@ func TestAsyncFallbackError(t *testing.T) {
 		// 2  fail
 		_, errorChan = errorCommand.Queue()
 		err = <-errorChan
-		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		So(err.Error(), ShouldEqual, errorText)
 		open, reason = errorCommand.circuit.IsOpen()
 		So(reason, ShouldEqual, "CLOSE: not enought request")
 		So(open, ShouldBeFalse)
@@ -420,7 +435,7 @@ func TestAsyncFallbackError(t *testing.T) {
 		// 3 fail
 		_, errorChan = errorCommand.Queue()
 		err = <-errorChan
-		So(err.Error(), ShouldEqual, "ERROR: error doing fallback")
+		So(err.Error(), ShouldEqual, errorText)
 		open, reason = errorCommand.circuit.IsOpen()
 		So(errorCommand.HealthCounts().Failures, ShouldEqual, 3)
 		So(errorCommand.HealthCounts().FallbackErrors, ShouldEqual, 3)

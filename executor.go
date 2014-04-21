@@ -2,7 +2,8 @@ package goHystrix
 
 import (
 	"fmt"
-	"github.com/dahernan/goHystrix/sample"
+	"log"
+	"strings"
 	"time"
 )
 
@@ -26,6 +27,13 @@ type Command struct {
 type Executor struct {
 	command Interface
 	circuit *CircuitBreaker
+}
+
+type CommandError struct {
+	group         string
+	name          string
+	runError      error
+	fallbackError error
 }
 
 // NewCommand- create a new command with the default values
@@ -93,34 +101,43 @@ func (ex *Executor) doExecute() (interface{}, error) {
 
 }
 
-func (ex *Executor) doFallback() (interface{}, error) {
+func (ex *Executor) doFallback(nestedError error) (interface{}, error) {
 	ex.Metric().Fallback()
 
-	if fbCmd, ok := ex.command.(FallbackInterface); ok {
-		value, err := fbCmd.Fallback()
-		if err != nil {
-			ex.Metric().FallbackError()
-		}
-		return value, err
-	} else {
+	fbCmd, ok := ex.command.(FallbackInterface)
+	if !ok {
 		ex.Metric().FallbackError()
-		return nil, fmt.Errorf("No fallback implementation available for %s", ex.command.Name())
+		return nil, NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, fmt.Errorf("No fallback implementation available for %s", ex.command.Name()))
 	}
-}
 
-func (ex *Executor) Execute() (value interface{}, err error) {
-	open, _ := ex.circuit.IsOpen()
-	if !open {
-		value, err = ex.doExecute()
-		// TODO log error ???????
-		if err != nil {
-			value, err = ex.doFallback()
-		}
-	} else {
-		value, err = ex.doFallback()
+	value, err := fbCmd.Fallback()
+	if err != nil {
+		ex.Metric().FallbackError()
+		return value, NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, err)
+	}
+
+	// log the nested error
+	if nestedError != nil {
+		commandError := NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, nil)
+		log.Println(commandError.Error())
 	}
 
 	return value, err
+
+}
+
+func (ex *Executor) Execute() (interface{}, error) {
+	open, _ := ex.circuit.IsOpen()
+	if open {
+		return ex.doFallback(nil)
+	}
+
+	value, err := ex.doExecute()
+	if err != nil {
+		return ex.doFallback(err)
+	}
+	return value, err
+
 }
 
 func (ex *Executor) Queue() (chan interface{}, chan error) {
@@ -147,6 +164,22 @@ func (ex *Executor) HealthCounts() HealthCounts {
 	return ex.Metric().HealthCounts()
 }
 
-func (ex *Executor) Stats() sample.Sample {
-	return ex.Metric().Stats()
+// Nested error handling
+func (e CommandError) Error() string {
+	runErrorText := ""
+	fallbackErrorText := ""
+	commandText := fmt.Sprintf("[%s:%s]", e.group, e.name)
+	if e.runError != nil {
+		runErrorText = fmt.Sprintf("RunError: %s", e.runError.Error())
+
+	}
+	if e.fallbackError != nil {
+		fallbackErrorText = fmt.Sprintf("FallbackError: %s", e.fallbackError.Error())
+	}
+
+	return strings.TrimSpace(fmt.Sprintf("%s %s %s", commandText, fallbackErrorText, runErrorText))
+}
+
+func NewCommandError(group string, name string, runError error, fallbackError error) CommandError {
+	return CommandError{group, name, runError, fallbackError}
 }

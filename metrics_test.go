@@ -11,7 +11,7 @@ import (
 
 func TestCountersSuccess(t *testing.T) {
 	Convey("Metric stores the success counter", t, func() {
-		metric := NewMetric()
+		metric := NewMetric("testGroup", "testName")
 
 		metric.Success(1)
 		metric.Success(2)
@@ -43,7 +43,7 @@ func TestCountersSuccess(t *testing.T) {
 
 func TestCounters(t *testing.T) {
 	Convey("Metric stores the others counters", t, func() {
-		metric := NewMetric()
+		metric := NewMetric("testGroup", "testName")
 
 		metric.Success(1)
 		metric.Success(2)
@@ -93,7 +93,7 @@ func TestCounters(t *testing.T) {
 
 func TestRollingsCounters(t *testing.T) {
 	Convey("Metric stores the counters in buckets for rolling the counters", t, func() {
-		metric := NewMetricWithParams(4, 10)
+		metric := NewMetricWithParams("group", "name", 4, 10)
 		fmt.Println("== metric.Success(1)")
 		metric.Success(1)
 		metric.Success(1)
@@ -146,7 +146,7 @@ func TestRollingsCounters(t *testing.T) {
 
 func TestMetricsKeepMessuaresSample(t *testing.T) {
 	Convey("Keep the stats of the duration for the successful results", t, func() {
-		metric := NewMetricWithParams(4, 20)
+		metric := NewMetricWithParams("group", "name", 4, 20)
 		metric.Success(5)
 		metric.Success(1)
 		metric.Success(9)
