@@ -41,8 +41,28 @@ func (s StatsdExport) Success(group string, name string, duration time.Duration)
 	}()
 }
 
-func (StatsdExport) Fail(group string, name string)          {}
-func (StatsdExport) Fallback(group string, name string)      {}
-func (StatsdExport) FallbackError(group string, name string) {}
-func (StatsdExport) Timeout(group string, name string)       {}
-func (StatsdExport) Panic(group string, name string)         {}
+func (s StatsdExport) Fail(group string, name string) {
+	go func() {
+		s.statsdClient.Increment(fmt.Sprintf("%s.%s.%s.fail", s.prefix, group, name))
+	}()
+}
+func (s StatsdExport) Fallback(group string, name string) {
+	go func() {
+		s.statsdClient.Increment(fmt.Sprintf("%s.%s.%s.fallback", s.prefix, group, name))
+	}()
+}
+func (s StatsdExport) FallbackError(group string, name string) {
+	go func() {
+		s.statsdClient.Increment(fmt.Sprintf("%s.%s.%s.fallbackError", s.prefix, group, name))
+	}()
+}
+func (s StatsdExport) Timeout(group string, name string) {
+	go func() {
+		s.statsdClient.Increment(fmt.Sprintf("%s.%s.%s.timeout", s.prefix, group, name))
+	}()
+}
+func (s StatsdExport) Panic(group string, name string) {
+	go func() {
+		s.statsdClient.Increment(fmt.Sprintf("%s.%s.%s.panic", s.prefix, group, name))
+	}()
+}
