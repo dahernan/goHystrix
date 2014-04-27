@@ -106,7 +106,8 @@ func (s StatsdExport) Panic(group string, name string) {
 }
 
 func (s StatsdExport) State(holder *CircuitHolder) {
-	holder = Circuits()
+	// TODO: have a save way to iterate over the circuits without
+	// knowing how is implemented
 	holder.mutex.RLock()
 	defer holder.mutex.RUnlock()
 	for group, names := range holder.circuits {
