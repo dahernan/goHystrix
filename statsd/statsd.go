@@ -1,169 +1,228 @@
-// Statsd client from Etsy (https://github.com/etsy/statsd/tree/master/examples/go)
 package statsd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
 	"time"
 )
 
-// The StatsdClient type defines the relevant properties of a StatsD connection.
-type StatsdClient struct {
-	Host string
-	Port int
-	conn net.Conn
+const (
+	MAX_PACKET_SIZE = 65536 - 8 - 20 // 8-byte UDP header, 20-byte IP header
+)
+
+type Statter interface {
+	Counter(sampleRate float32, bucket string, n ...int)
+	Timing(sampleRate float32, bucket string, d ...time.Duration)
+	Gauge(sampleRate float32, bucket string, value ...string)
 }
 
-// Factory method to initialize udp connection
-//
-// Usage:
-//
-//     import "statsd"
-//     client := statsd.New('localhost', 8125)
-func New(host string, port int) *StatsdClient {
-	client := StatsdClient{Host: host, Port: port}
-	client.Open()
-	return &client
+type statsd struct {
+	w io.Writer
 }
 
-// Method to open udp connection, called by default client factory
-func (client *StatsdClient) Open() {
-	connectionString := fmt.Sprintf("%s:%d", client.Host, client.Port)
-	conn, err := net.Dial("udp", connectionString)
+// Dial takes the same parameters as net.Dial, ie. a transport protocol
+// (typically "udp") and an endpoint. It returns a new Statsd structure,
+// ready to use.
+//
+// Note that g2s currently performs no management on the connection it creates.
+func Dial(proto, endpoint string) (Statter, error) {
+	c, err := net.DialTimeout(proto, endpoint, 2*time.Second)
 	if err != nil {
-		log.Println(err)
+		return nil, err
 	}
-	client.conn = conn
+	return New(c)
 }
 
-// Method to close udp connection
-func (client *StatsdClient) Close() {
-	client.conn.Close()
+// New constructs a Statsd structure which will write statsd-protocol messages
+// into the given io.Writer. New is intended to be used by consumers who want
+// nonstandard behavior: for example, they may pass an io.Writer which performs
+// buffering and aggregation of statsd-protocol messages.
+//
+// Note that g2s provides no synchronization. If you pass an io.Writer which
+// is not goroutine-safe, for example a bytes.Buffer, you must make sure you
+// synchronize your calls to the Statter methods.
+func New(w io.Writer) (Statter, error) {
+	return &statsd{
+		w: w,
+	}, nil
 }
 
-// Log timing information (in milliseconds) without sampling
-//
-// Usage:
-//
-//     import (
-//         "statsd"
-//         "time"
-//     )
-//
-//     client := statsd.New('localhost', 8125)
-//     t1 := time.Now()
-//     expensiveCall()
-//     t2 := time.Now()
-//     duration := int64(t2.Sub(t1)/time.Millisecond)
-//     client.Timing("foo.time", duration)
-func (client *StatsdClient) Timing(stat string, time int64) {
-	updateString := fmt.Sprintf("%d|ms", time)
-	stats := map[string]string{stat: updateString}
-	client.Send(stats, 1)
-}
+// bufferize folds the slice of sendables into a slice of byte-buffers,
+// each of which shall be no larger than max bytes.
+func bufferize(sendables []sendable, max int) [][]byte {
+	bN := [][]byte{}
+	b1, b1sz := []byte{}, 0
 
-// Log timing information (in milliseconds) with sampling
-//
-// Usage:
-//
-//     import (
-//         "statsd"
-//         "time"
-//     )
-//
-//     client := statsd.New('localhost', 8125)
-//     t1 := time.Now()
-//     expensiveCall()
-//     t2 := time.Now()
-//     duration := int64(t2.Sub(t1)/time.Millisecond)
-//     client.TimingWithSampleRate("foo.time", duration, 0.2)
-func (client *StatsdClient) TimingWithSampleRate(stat string, time int64, sampleRate float32) {
-	updateString := fmt.Sprintf("%d|ms", time)
-	stats := map[string]string{stat: updateString}
-	client.Send(stats, sampleRate)
-}
-
-// Increments one stat counter without sampling
-//
-// Usage:
-//
-//     import "statsd"
-//     client := statsd.New('localhost', 8125)
-//     client.Increment('foo.bar')
-func (client *StatsdClient) Increment(stat string) {
-	stats := []string{stat}
-	client.UpdateStats(stats, 1, 1)
-}
-
-// Increments one stat counter with sampling
-//
-// Usage:
-//
-//     import "statsd"
-//     client := statsd.New('localhost', 8125)
-//     client.Increment('foo.bar', 0.2)
-func (client *StatsdClient) IncrementWithSampling(stat string, sampleRate float32) {
-	stats := []string{stat}
-	client.UpdateStats(stats[:], 1, sampleRate)
-}
-
-// Decrements one stat counter without sampling
-//
-// Usage:
-//
-//     import "statsd"
-//     client := statsd.New('localhost', 8125)
-//     client.Decrement('foo.bar')
-func (client *StatsdClient) Decrement(stat string) {
-	stats := []string{stat}
-	client.UpdateStats(stats[:], -1, 1)
-}
-
-// Decrements one stat counter with sampling
-//
-// Usage:
-//
-//     import "statsd"
-//     client := statsd.New('localhost', 8125)
-//     client.Decrement('foo.bar', 0.2)
-func (client *StatsdClient) DecrementWithSampling(stat string, sampleRate float32) {
-	stats := []string{stat}
-	client.UpdateStats(stats[:], -1, sampleRate)
-}
-
-// Arbitrarily updates a list of stats by a delta
-func (client *StatsdClient) UpdateStats(stats []string, delta int, sampleRate float32) {
-	statsToSend := make(map[string]string)
-	for _, stat := range stats {
-		updateString := fmt.Sprintf("%d|c", delta)
-		statsToSend[stat] = updateString
-	}
-	client.Send(statsToSend, sampleRate)
-}
-
-// Sends data to udp statsd daemon
-func (client *StatsdClient) Send(data map[string]string, sampleRate float32) {
-	sampledData := make(map[string]string)
-	if sampleRate < 1 {
-		r := rand.New(rand.NewSource(time.Now().Unix()))
-		rNum := r.Float32()
-		if rNum <= sampleRate {
-			for stat, value := range data {
-				sampledUpdateString := fmt.Sprintf("%s|@%f", value, sampleRate)
-				sampledData[stat] = sampledUpdateString
-			}
+	for _, sendable := range sendables {
+		buf := []byte(sendable.Message())
+		if b1sz+len(buf) > max {
+			bN = append(bN, b1)
+			b1, b1sz = []byte{}, 0
 		}
-	} else {
-		sampledData = data
+		b1 = append(b1, buf...)
+		b1sz += len(buf)
 	}
 
-	for k, v := range sampledData {
-		update_string := fmt.Sprintf("%s:%s", k, v)
-		_, err := fmt.Fprintf(client.conn, update_string)
+	if len(b1) > 0 {
+		bN = append(bN, b1[0:len(b1)-1])
+	}
+
+	return bN
+}
+
+// publish folds the slice of sendables into one or more packets, each of which
+// will be no larger than MAX_PACKET_SIZE. It then writes them, one by one,
+// into the Statsd io.Writer.
+func (s *statsd) publish(msgs []sendable) {
+	for _, buf := range bufferize(msgs, MAX_PACKET_SIZE) {
+		// In the base case, when the Statsd struct is backed by a net.Conn,
+		// "Multiple goroutines may invoke methods on a Conn simultaneously."
+		//   -- http://golang.org/pkg/net/#Conn
+		// Otherwise, Bring Your Own Synchronization™.
+		n, err := s.w.Write(buf)
 		if err != nil {
-			log.Println(err)
+			log.Printf("g2s: publish: %s", err)
+		} else if n != len(buf) {
+			log.Printf("g2s: publish: short send: %d < %d", n, len(buf))
 		}
 	}
+}
+
+// maybeSample returns a sampling structure and true if a pseudorandom number
+// in the range 0..1 is less than or equal to the passed rate.
+//
+// As a special case, if r >= 1.0, maybeSample will return an uninitialized
+// sampling structure and true. The uninitialized sampling structure implies
+// enabled == false, which tells statsd that the value is unsampled.
+func maybeSample(r float32) (sampling, bool) {
+	if r >= 1.0 {
+		return sampling{}, true
+	}
+
+	if rand.Float32() > r {
+		return sampling{}, false
+	}
+
+	return sampling{
+		enabled: true,
+		rate:    r,
+	}, true
+}
+
+// Counter sends one or more counter statistics to statsd.
+//
+// Application code should call it for every potential invocation of a
+// statistic; it uses the sampleRate to determine whether or not to send or
+// squelch the data, on an aggregate basis.
+func (s *statsd) Counter(sampleRate float32, bucket string, n ...int) {
+	samp, ok := maybeSample(sampleRate)
+	if !ok {
+		return
+	}
+
+	msgs := make([]sendable, len(n))
+	for i, ni := range n {
+		msgs[i] = &counterUpdate{
+			bucket:   bucket,
+			n:        ni,
+			sampling: samp,
+		}
+	}
+
+	s.publish(msgs)
+}
+
+// Timing sends one or more timing statistics to statsd.
+//
+// Application code should call it for every potential invocation of a
+// statistic; it uses the sampleRate to determine whether or not to send or
+// squelch the data, on an aggregate basis.
+func (s *statsd) Timing(sampleRate float32, bucket string, d ...time.Duration) {
+	samp, ok := maybeSample(sampleRate)
+	if !ok {
+		return
+	}
+
+	msgs := make([]sendable, len(d))
+	for i, di := range d {
+		msgs[i] = &timingUpdate{
+			bucket:   bucket,
+			ms:       int(di.Nanoseconds() / 1e6),
+			sampling: samp,
+		}
+	}
+
+	s.publish(msgs)
+}
+
+// Gauge sends one or more gauge statistics to statsd.
+//
+// Application code should call it for every potential invocation of a
+// statistic; it uses the sampleRate to determine whether or not to send or
+// squelch the data, on an aggregate basis.
+func (s *statsd) Gauge(sampleRate float32, bucket string, v ...string) {
+	samp, ok := maybeSample(sampleRate)
+	if !ok {
+		return
+	}
+
+	msgs := make([]sendable, len(v))
+	for i, vi := range v {
+		msgs[i] = &gaugeUpdate{
+			bucket:   bucket,
+			val:      vi,
+			sampling: samp,
+		}
+	}
+
+	s.publish(msgs)
+}
+
+type sendable interface {
+	Message() string
+}
+
+type sampling struct {
+	enabled bool
+	rate    float32
+}
+
+func (s *sampling) Suffix() string {
+	if s.enabled {
+		return fmt.Sprintf("|@%f", s.rate)
+	}
+	return ""
+}
+
+type counterUpdate struct {
+	bucket string
+	n      int
+	sampling
+}
+
+func (u *counterUpdate) Message() string {
+	return fmt.Sprintf("%s:%d|c%s\n", u.bucket, u.n, u.sampling.Suffix())
+}
+
+type timingUpdate struct {
+	bucket string
+	ms     int
+	sampling
+}
+
+func (u *timingUpdate) Message() string {
+	return fmt.Sprintf("%s:%d|ms%s\n", u.bucket, u.ms, u.sampling.Suffix())
+}
+
+type gaugeUpdate struct {
+	bucket string
+	val    string
+	sampling
+}
+
+func (u *gaugeUpdate) Message() string {
+	return fmt.Sprintf("%s:%s|g%s\n", u.bucket, u.val, u.sampling.Suffix())
 }

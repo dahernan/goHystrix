@@ -9,22 +9,6 @@ const (
 	alpha = 0.015 // alpha for the exponential decay distribution
 )
 
-var (
-	metricsExporter MetricExport
-)
-
-func init() {
-	metricsExporter = NewNilExport()
-}
-
-func Exporter() MetricExport {
-	return metricsExporter
-}
-
-func SetExporter(export MetricExport) {
-	metricsExporter = export
-}
-
 type Metric struct {
 	name  string
 	group string
@@ -47,15 +31,6 @@ type Metric struct {
 	lastFailure time.Time
 	lastSuccess time.Time
 	lastTimeout time.Time
-}
-
-type MetricExport interface {
-	Success(group string, name string, duration time.Duration)
-	Fail(group string, name string)
-	Fallback(group string, name string)
-	FallbackError(group string, name string)
-	Timeout(group string, name string)
-	Panic(group string, name string)
 }
 
 func NewMetric(group string, name string) *Metric {

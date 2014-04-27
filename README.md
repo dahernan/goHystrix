@@ -120,8 +120,15 @@ goHystrix.NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
 ```go
 import	_ "github.com/dahernan/goHystrix/httpexp"
 ```
-GET - http://<host>/debug/circuits  
+GET - http://host/debug/circuits  
 
+
+### Exposes the metrics using statds
+
+```go
+// host and prefix for statds server, and send the gauges of the state of the circuits every 3 Seconds
+goHystrix.UseStatsd("0.0.0.0:8125", "myprefix", 3*time.Second)
+```
 
 
 
