@@ -113,7 +113,13 @@ numberOfSamplesToStore - 50 values (you store the duration of 50 successful call
 // minimumNumberOfRequest - 3
 // numberOfSecondsToStore - 5
 // numberOfSamplesToStore - 10
-goHystrix.NewCommandWithParams(&AnotherCommand{}, 60.0, 3, 5, 10)
+goHystrix.NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, CommandOptions{
+		errorsThreshold:        60.0,
+		minimumNumberOfRequest: 3,
+		numberOfSecondsToStore: 5,
+		numberOfSamplesToStore: 10,
+	})
+
 ```
 
 ### Exposes all circuits information by http in JSON format

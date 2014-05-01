@@ -24,10 +24,20 @@ func (rc *ResultCommand) Run() (interface{}, error) {
 	return rc.result, rc.err
 }
 
+func CommandOptionsForTest() CommandOptions {
+	return CommandOptions{
+		errorsThreshold:        50.0,
+		minimumNumberOfRequest: 3,
+		numberOfSecondsToStore: 5,
+		numberOfSamplesToStore: 10,
+	}
+
+}
+
 func TestRunErrors(t *testing.T) {
 	Convey("Command returns basic value, no error", t, func() {
 		CircuitsReset()
-		command := NewCommandWithParams(&ResultCommand{"result", nil, false}, 50.0, 3, 5, 10)
+		command := NewCommandWithOptions(&ResultCommand{"result", nil, false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -39,7 +49,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command returns nil, nil", t, func() {
 		CircuitsReset()
-		command := NewCommandWithParams(&ResultCommand{nil, nil, false}, 50.0, 3, 5, 10)
+		command := NewCommandWithOptions(&ResultCommand{nil, nil, false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -51,7 +61,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command returns value, error", t, func() {
 		CircuitsReset()
-		command := NewCommandWithParams(&ResultCommand{"result", fmt.Errorf("some error"), false}, 50.0, 3, 5, 10)
+		command := NewCommandWithOptions(&ResultCommand{"result", fmt.Errorf("some error"), false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -63,7 +73,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command panics!", t, func() {
 		CircuitsReset()
-		command := NewCommandWithParams(&ResultCommand{nil, nil, true}, 50.0, 3, 5, 10)
+		command := NewCommandWithOptions(&ResultCommand{nil, nil, true}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -89,7 +99,7 @@ func (cmd *NoFallbackCommand) Run() (interface{}, error) {
 func TestRunNoFallback(t *testing.T) {
 	Convey("Command Execute errors directly, without fallback implementation", t, func() {
 		CircuitsReset()
-		errorCommand := NewCommandWithParams(&NoFallbackCommand{"error"}, 50.0, 3, 5, 10)
+		errorCommand := NewCommandWithOptions(&NoFallbackCommand{"error"}, CommandOptionsForTest())
 
 		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
 			var result interface{}
@@ -131,7 +141,7 @@ func NewStringCommand(state string, fallbackState string) *Command {
 	command.state = state
 	command.fallbackState = fallbackState
 
-	return NewCommandWithParams(command, 50.0, 3, 5, 10)
+	return NewCommandWithOptions(command, CommandOptionsForTest())
 }
 
 func (c *StringCommand) Name() string {

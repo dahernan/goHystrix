@@ -36,33 +36,50 @@ type CommandError struct {
 	fallbackError error
 }
 
-// NewCommand- create a new command with the default values
-// errorThreshold - 50 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
+// CommandOptions, you can custimize the values, for the Circuit Breaker and the Metrics stores
+// errorsThreshold - if number_of_errors / total_calls * 100 > errorThreshold the circuit will be open
+// minimumNumberOfRequest - if total_calls < minimumNumberOfRequest the circuit will be close
+// numberOfSecondsToStore - Is the number of seconds to count the stats, for example 10 stores just the last 10 seconds of calls
+// numberOfSamplesToStore - Is the number of samples to store for calculate the stats, greater means more precision to get Mean, Max, Min...
+type CommandOptions struct {
+	errorsThreshold        float64
+	minimumNumberOfRequest int64
+	numberOfSecondsToStore int
+	numberOfSamplesToStore int
+}
+
+// CommandOptionsDefaults
+// errorsThreshold - 50 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
 // minimumNumberOfRequest - if total_calls < 20 the circuit will be close
 // numberOfSecondsToStore - 20 seconds
 // numberOfSamplesToStore - 50 values
+func CommandOptionsDefaults() CommandOptions {
+	return CommandOptions{
+		errorsThreshold:        50.0,
+		minimumNumberOfRequest: 20,
+		numberOfSecondsToStore: 20,
+		numberOfSamplesToStore: 20,
+	}
+
+}
+
+// NewCommand- create a new command with the default values
 func NewCommand(command Interface) *Command {
 	executor := NewExecutor(command)
 	return &Command{command, executor}
 }
 
-// NewCommandWithParams, you can custimize the values, for the Circuit Breaker and the Metrics stores
-// errorThreshold - if number_of_errors / total_calls * 100 > errorThreshold the circuit will be open
-// minimumNumberOfRequest - if total_calls < minimumNumberOfRequest the circuit will be close
-// numberOfSecondsToStore - Is the number of seconds to count the stats, for example 10 stores just the last 10 seconds of calls
-// numberOfSamplesToStore - Is the number of samples to store for calculate the stats, greater means more precision to get Mean, Max, Min...
-func NewCommandWithParams(command Interface,
-	errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *Command {
-	executor := NewExecutorWithParams(command, errorThreshold, minimumNumberOfRequest, numberOfSecondsToStore, numberOfSamplesToStore)
+func NewCommandWithOptions(command Interface, options CommandOptions) *Command {
+	executor := NewExecutorWithOptions(command, options)
 	return &Command{command, executor}
 }
 
 func NewExecutor(command Interface) *Executor {
-	return NewExecutorWithParams(command, 50.0, 20, 20, 50)
+	return NewExecutorWithOptions(command, CommandOptionsDefaults())
 }
 
-func NewExecutorWithParams(command Interface, errorThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *Executor {
-	circuit := NewCircuit(command.Group(), command.Name(), errorThreshold, minimumNumberOfRequest, numberOfSecondsToStore, numberOfSamplesToStore)
+func NewExecutorWithOptions(command Interface, options CommandOptions) *Executor {
+	circuit := NewCircuit(command.Group(), command.Name(), options)
 	return &Executor{command, circuit}
 }
 

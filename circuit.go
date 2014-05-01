@@ -25,16 +25,23 @@ type CircuitHolder struct {
 }
 
 func NewCircuitNoParams(group string, name string) *CircuitBreaker {
-	return NewCircuit(group, name, 50.0, 20, 20, 50)
+	return NewCircuit(group, name, CommandOptionsDefaults())
 }
 
-func NewCircuit(group string, name string, errorsThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int) *CircuitBreaker {
+func NewCircuit(group string, name string, options CommandOptions) *CircuitBreaker {
+	// errorsThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int
 	c, ok := Circuits().Get(group, name)
 	if ok {
 		return c
 	}
-	metric := NewMetricWithParams(group, name, numberOfSecondsToStore, numberOfSamplesToStore)
-	c = &CircuitBreaker{name: name, group: group, metric: metric, errorsThreshold: errorsThreshold, minRequestThreshold: minimumNumberOfRequest}
+	metric := NewMetricWithParams(group, name, options.numberOfSecondsToStore, options.numberOfSamplesToStore)
+	c = &CircuitBreaker{
+		name:                name,
+		group:               group,
+		metric:              metric,
+		errorsThreshold:     options.errorsThreshold,
+		minRequestThreshold: options.minimumNumberOfRequest,
+	}
 
 	Circuits().Set(group, name, c)
 	return c
