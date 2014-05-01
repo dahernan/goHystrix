@@ -12,7 +12,7 @@ type CircuitBreaker struct {
 
 	metric              *Metric
 	errorsThreshold     float64
-	minRequestThreshold int64 // min number of request
+	minRequestThreshold int64
 }
 
 var (
@@ -29,7 +29,6 @@ func NewCircuitNoParams(group string, name string) *CircuitBreaker {
 }
 
 func NewCircuit(group string, name string, options CommandOptions) *CircuitBreaker {
-	// errorsThreshold float64, minimumNumberOfRequest int64, numberOfSecondsToStore int, numberOfSamplesToStore int
 	c, ok := Circuits().Get(group, name)
 	if ok {
 		return c
