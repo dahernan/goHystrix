@@ -64,10 +64,10 @@ func TestStringWithOptions(t *testing.T) {
 
 	// Sync execution
 	command := NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, CommandOptions{
-		errorsThreshold:        60.0,
-		minimumNumberOfRequest: 3,
-		numberOfSecondsToStore: 5,
-		numberOfSamplesToStore: 10,
+		ErrorsThreshold:        60.0,
+		MinimumNumberOfRequest: 3,
+		NumberOfSecondsToStore: 5,
+		NumberOfSamplesToStore: 10,
 	})
 	value, err := command.Execute()
 

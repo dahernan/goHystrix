@@ -33,13 +33,13 @@ func NewCircuit(group string, name string, options CommandOptions) *CircuitBreak
 	if ok {
 		return c
 	}
-	metric := NewMetricWithParams(group, name, options.numberOfSecondsToStore, options.numberOfSamplesToStore)
+	metric := NewMetricWithParams(group, name, options.NumberOfSecondsToStore, options.NumberOfSamplesToStore)
 	c = &CircuitBreaker{
 		name:                name,
 		group:               group,
 		metric:              metric,
-		errorsThreshold:     options.errorsThreshold,
-		minRequestThreshold: options.minimumNumberOfRequest,
+		errorsThreshold:     options.ErrorsThreshold,
+		minRequestThreshold: options.MinimumNumberOfRequest,
 	}
 
 	Circuits().Set(group, name, c)

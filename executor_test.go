@@ -26,10 +26,10 @@ func (rc *ResultCommand) Run() (interface{}, error) {
 
 func CommandOptionsForTest() CommandOptions {
 	return CommandOptions{
-		errorsThreshold:        50.0,
-		minimumNumberOfRequest: 3,
-		numberOfSecondsToStore: 5,
-		numberOfSamplesToStore: 10,
+		ErrorsThreshold:        50.0,
+		MinimumNumberOfRequest: 3,
+		NumberOfSecondsToStore: 5,
+		NumberOfSamplesToStore: 10,
 	}
 
 }

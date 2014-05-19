@@ -109,15 +109,15 @@ numberOfSamplesToStore - 50 values (you store the duration of 50 successful call
 ### You can customize the default values when you create the command
 ```go
 
-// errorPercetageThreshold - 60.0
-// minimumNumberOfRequest - 3
-// numberOfSecondsToStore - 5
-// numberOfSamplesToStore - 10
-goHystrix.NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, CommandOptions{
-		errorsThreshold:        60.0,
-		minimumNumberOfRequest: 3,
-		numberOfSecondsToStore: 5,
-		numberOfSamplesToStore: 10,
+// ErrorPercetageThreshold - 60.0
+// MinimumNumberOfRequest - 3
+// NumberOfSecondsToStore - 5
+// NumberOfSamplesToStore - 10
+goHystrix.NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, goHystrix.CommandOptions{
+		ErrorsThreshold:        60.0,
+		MinimumNumberOfRequest: 3,
+		NumberOfSecondsToStore: 5,
+		NumberOfSamplesToStore: 10,
 	})
 
 ```

@@ -37,28 +37,28 @@ type CommandError struct {
 }
 
 // CommandOptions, you can custimize the values, for the Circuit Breaker and the Metrics stores
-// errorsThreshold - if number_of_errors / total_calls * 100 > errorThreshold the circuit will be open
-// minimumNumberOfRequest - if total_calls < minimumNumberOfRequest the circuit will be close
-// numberOfSecondsToStore - Is the number of seconds to count the stats, for example 10 stores just the last 10 seconds of calls
-// numberOfSamplesToStore - Is the number of samples to store for calculate the stats, greater means more precision to get Mean, Max, Min...
+// ErrorsThreshold - if number_of_errors / total_calls * 100 > errorThreshold the circuit will be open
+// MinimumNumberOfRequest - if total_calls < minimumNumberOfRequest the circuit will be close
+// NumberOfSecondsToStore - Is the number of seconds to count the stats, for example 10 stores just the last 10 seconds of calls
+// NumberOfSamplesToStore - Is the number of samples to store for calculate the stats, greater means more precision to get Mean, Max, Min...
 type CommandOptions struct {
-	errorsThreshold        float64
-	minimumNumberOfRequest int64
-	numberOfSecondsToStore int
-	numberOfSamplesToStore int
+	ErrorsThreshold        float64
+	MinimumNumberOfRequest int64
+	NumberOfSecondsToStore int
+	NumberOfSamplesToStore int
 }
 
 // CommandOptionsDefaults
-// errorsThreshold - 50 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
-// minimumNumberOfRequest - if total_calls < 20 the circuit will be close
-// numberOfSecondsToStore - 20 seconds
-// numberOfSamplesToStore - 50 values
+// ErrorsThreshold - 50 - If number_of_errors / total_calls * 100 > 50.0 the circuit will be open
+// MinimumNumberOfRequest - if total_calls < 20 the circuit will be close
+// NumberOfSecondsToStore - 20 seconds
+// NumberOfSamplesToStore - 50 values
 func CommandOptionsDefaults() CommandOptions {
 	return CommandOptions{
-		errorsThreshold:        50.0,
-		minimumNumberOfRequest: 20,
-		numberOfSecondsToStore: 20,
-		numberOfSamplesToStore: 20,
+		ErrorsThreshold:        50.0,
+		MinimumNumberOfRequest: 20,
+		NumberOfSecondsToStore: 20,
+		NumberOfSamplesToStore: 20,
 	}
 
 }
