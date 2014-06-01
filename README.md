@@ -13,8 +13,6 @@ How to use
 type Interface interface {
 	Run() (interface{}, error)
 	Timeout() time.Duration
-	Name() string
-	Group() string
 }
 ```
 
@@ -40,15 +38,6 @@ type MyStringCommand struct {
 	message string
 }
 
-// name of your command 
-func (c *MyStringCommand) Name() string {
-	return "stringMessageCommand"
-}
-
-// group of the command, it's good to keep related commands together 
-func (c *MyStringCommand) Group() string {
-	return "stringGroup"
-}
 
 // timeout for the command Run
 func (c *MyStringCommand) Timeout() time.Duration {
@@ -67,7 +56,7 @@ func (c *MyStringCommand) Fallback() (interface{}, error) {
 
 func TestString(t *testing.T) {
 	// creates a new command
-	command := goHystrix.NewCommand(&MyStringCommand{"helloooooooo"})
+	command := goHystrix.NewCommand("commandName", "commandGroup", &MyStringCommand{"helloooooooo"})
 	
 	// Sync execution
 	value, err := command.Execute()
@@ -113,7 +102,7 @@ numberOfSamplesToStore - 50 values (you store the duration of 50 successful call
 // MinimumNumberOfRequest - 3
 // NumberOfSecondsToStore - 5
 // NumberOfSamplesToStore - 10
-goHystrix.NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, goHystrix.CommandOptions{
+goHystrix.NewCommandWithOptions("commandName", "commandGroup", &MyStringCommand{"helloooooooo"}, goHystrix.CommandOptions{
 		ErrorsThreshold:        60.0,
 		MinimumNumberOfRequest: 3,
 		NumberOfSecondsToStore: 5,

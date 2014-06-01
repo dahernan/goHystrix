@@ -14,8 +14,6 @@ type ResultCommand struct {
 	shouldPanic bool
 }
 
-func (rc *ResultCommand) Name() string           { return "ResultCommand" }
-func (rc *ResultCommand) Group() string          { return "testGroup" }
 func (rc *ResultCommand) Timeout() time.Duration { return 60 * time.Second }
 func (rc *ResultCommand) Run() (interface{}, error) {
 	if rc.shouldPanic {
@@ -37,7 +35,7 @@ func CommandOptionsForTest() CommandOptions {
 func TestRunErrors(t *testing.T) {
 	Convey("Command returns basic value, no error", t, func() {
 		CircuitsReset()
-		command := NewCommandWithOptions(&ResultCommand{"result", nil, false}, CommandOptionsForTest())
+		command := NewCommandWithOptions("ResultCommand", "testGroup", &ResultCommand{"result", nil, false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -49,7 +47,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command returns nil, nil", t, func() {
 		CircuitsReset()
-		command := NewCommandWithOptions(&ResultCommand{nil, nil, false}, CommandOptionsForTest())
+		command := NewCommandWithOptions("ResultCommand", "testGroup", &ResultCommand{nil, nil, false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -61,7 +59,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command returns value, error", t, func() {
 		CircuitsReset()
-		command := NewCommandWithOptions(&ResultCommand{"result", fmt.Errorf("some error"), false}, CommandOptionsForTest())
+		command := NewCommandWithOptions("ResultCommand", "testGroup", &ResultCommand{"result", fmt.Errorf("some error"), false}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -73,7 +71,7 @@ func TestRunErrors(t *testing.T) {
 
 	Convey("Command panics!", t, func() {
 		CircuitsReset()
-		command := NewCommandWithOptions(&ResultCommand{nil, nil, true}, CommandOptionsForTest())
+		command := NewCommandWithOptions("ResultCommand", "testGroup", &ResultCommand{nil, nil, true}, CommandOptionsForTest())
 
 		Convey("run", func() {
 			result, err := command.Execute()
@@ -89,8 +87,6 @@ type NoFallbackCommand struct {
 	state string
 }
 
-func (cmd *NoFallbackCommand) Name() string           { return "nofallbackCmd" }
-func (cmd *NoFallbackCommand) Group() string          { return "testGroup" }
 func (cmd *NoFallbackCommand) Timeout() time.Duration { return 3 * time.Second }
 func (cmd *NoFallbackCommand) Run() (interface{}, error) {
 	return "", fmt.Errorf(cmd.state)
@@ -99,7 +95,7 @@ func (cmd *NoFallbackCommand) Run() (interface{}, error) {
 func TestRunNoFallback(t *testing.T) {
 	Convey("Command Execute errors directly, without fallback implementation", t, func() {
 		CircuitsReset()
-		errorCommand := NewCommandWithOptions(&NoFallbackCommand{"error"}, CommandOptionsForTest())
+		errorCommand := NewCommandWithOptions("nofallbackCmd", "testGroup", &NoFallbackCommand{"error"}, CommandOptionsForTest())
 
 		Convey("After 3 errors, the circuit is open and the next call is using the fallback", func() {
 			var result interface{}
@@ -141,15 +137,7 @@ func NewStringCommand(state string, fallbackState string) *Command {
 	command.state = state
 	command.fallbackState = fallbackState
 
-	return NewCommandWithOptions(command, CommandOptionsForTest())
-}
-
-func (c *StringCommand) Name() string {
-	return "testCommand"
-}
-
-func (c *StringCommand) Group() string {
-	return "testGroup"
+	return NewCommandWithOptions("testCommand", "testGroup", command, CommandOptionsForTest())
 }
 
 func (c *StringCommand) Timeout() time.Duration {

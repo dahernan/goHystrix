@@ -12,14 +12,12 @@ import (
 )
 
 var (
-	command = NewCommand(&SimpleCommand{})
+	command = NewCommand("SimpleCommand", "testGroup", &SimpleCommand{})
 )
 
 type SimpleCommand struct {
 }
 
-func (rc *SimpleCommand) Name() string           { return "SimpleCommand" }
-func (rc *SimpleCommand) Group() string          { return "testGroup" }
 func (rc *SimpleCommand) Timeout() time.Duration { return 1 * time.Second }
 func (rc *SimpleCommand) Run() (interface{}, error) {
 	return "ok", nil

@@ -10,8 +10,6 @@ import (
 type Interface interface {
 	Run() (interface{}, error)
 	Timeout() time.Duration
-	Name() string
-	Group() string
 }
 
 type FallbackInterface interface {
@@ -25,6 +23,8 @@ type Command struct {
 }
 
 type Executor struct {
+	group   string
+	name    string
 	command Interface
 	circuit *CircuitBreaker
 }
@@ -64,23 +64,23 @@ func CommandOptionsDefaults() CommandOptions {
 }
 
 // NewCommand- create a new command with the default values
-func NewCommand(command Interface) *Command {
-	executor := NewExecutor(command)
-	return &Command{command, executor}
+func NewCommand(name string, group string, command Interface) *Command {
+	executor := NewExecutor(name, group, command)
+	return &Command{Interface: command, Executor: executor}
 }
 
-func NewCommandWithOptions(command Interface, options CommandOptions) *Command {
-	executor := NewExecutorWithOptions(command, options)
-	return &Command{command, executor}
+func NewCommandWithOptions(name string, group string, command Interface, options CommandOptions) *Command {
+	executor := NewExecutorWithOptions(name, group, command, options)
+	return &Command{Interface: command, Executor: executor}
 }
 
-func NewExecutor(command Interface) *Executor {
-	return NewExecutorWithOptions(command, CommandOptionsDefaults())
+func NewExecutor(name string, group string, command Interface) *Executor {
+	return NewExecutorWithOptions(name, group, command, CommandOptionsDefaults())
 }
 
-func NewExecutorWithOptions(command Interface, options CommandOptions) *Executor {
-	circuit := NewCircuit(command.Group(), command.Name(), options)
-	return &Executor{command, circuit}
+func NewExecutorWithOptions(name string, group string, command Interface, options CommandOptions) *Executor {
+	circuit := NewCircuit(group, name, options)
+	return &Executor{group: group, name: name, command: command, circuit: circuit}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {
@@ -113,7 +113,7 @@ func (ex *Executor) doExecute() (interface{}, error) {
 		return nil, err
 	case <-time.After(ex.command.Timeout()):
 		ex.Metric().Timeout()
-		return nil, fmt.Errorf("error: Timeout (%s), executing command %s:%s", ex.command.Timeout(), ex.command.Group(), ex.command.Name())
+		return nil, fmt.Errorf("error: Timeout (%s), executing command %s:%s", ex.command.Timeout(), ex.group, ex.name)
 	}
 
 }
@@ -124,18 +124,18 @@ func (ex *Executor) doFallback(nestedError error) (interface{}, error) {
 	fbCmd, ok := ex.command.(FallbackInterface)
 	if !ok {
 		ex.Metric().FallbackError()
-		return nil, NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, fmt.Errorf("No fallback implementation available for %s", ex.command.Name()))
+		return nil, NewCommandError(ex.group, ex.name, nestedError, fmt.Errorf("No fallback implementation available for %s", ex.name))
 	}
 
 	value, err := fbCmd.Fallback()
 	if err != nil {
 		ex.Metric().FallbackError()
-		return value, NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, err)
+		return value, NewCommandError(ex.group, ex.name, nestedError, err)
 	}
 
 	// log the nested error
 	if nestedError != nil {
-		commandError := NewCommandError(ex.command.Group(), ex.command.Name(), nestedError, nil)
+		commandError := NewCommandError(ex.group, ex.name, nestedError, nil)
 		log.Println(commandError.Error())
 	}
 

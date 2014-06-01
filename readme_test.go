@@ -11,14 +11,6 @@ type MyStringCommand struct {
 	message string
 }
 
-func (c *MyStringCommand) Name() string {
-	return "stringMessage"
-}
-
-func (c *MyStringCommand) Group() string {
-	return "stringGroup"
-}
-
 func (c *MyStringCommand) Timeout() time.Duration {
 	return 3 * time.Millisecond
 }
@@ -34,7 +26,7 @@ func (c *MyStringCommand) Fallback() (interface{}, error) {
 func TestString(t *testing.T) {
 
 	// Sync execution
-	command := NewCommand(&MyStringCommand{"helloooooooo"})
+	command := NewCommand("stringMessage", "stringGroup", &MyStringCommand{"helloooooooo"})
 	value, err := command.Execute()
 
 	fmt.Println("Sync call ---- ")
@@ -63,7 +55,7 @@ func TestString(t *testing.T) {
 func TestStringWithOptions(t *testing.T) {
 
 	// Sync execution
-	command := NewCommandWithOptions(&MyStringCommand{"helloooooooo"}, CommandOptions{
+	command := NewCommandWithOptions("stringMessage", "stringGroup", &MyStringCommand{"helloooooooo"}, CommandOptions{
 		ErrorsThreshold:        60.0,
 		MinimumNumberOfRequest: 3,
 		NumberOfSecondsToStore: 5,
