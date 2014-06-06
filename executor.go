@@ -55,7 +55,7 @@ type CommandOptions struct {
 // MinimumNumberOfRequest - if total_calls < 20 the circuit will be close
 // NumberOfSecondsToStore - 20 seconds
 // NumberOfSamplesToStore - 50 values
-// Timeout - 2.Seconds
+// Timeout - 2 * time.Seconds
 func CommandOptionsDefaults() CommandOptions {
 	return CommandOptions{
 		ErrorsThreshold:        50.0,
@@ -205,4 +205,41 @@ func (e CommandError) Error() string {
 
 func NewCommandError(group string, name string, runError error, fallbackError error) CommandError {
 	return CommandError{group, name, runError, fallbackError}
+}
+
+// Same API but with Funcional flavor
+type CommandFunc func() (interface{}, error)
+type CommandFuncWrap struct {
+	run CommandFunc
+}
+
+func (c CommandFuncWrap) Run() (interface{}, error) {
+	return c.run()
+}
+
+type CommandFuncFallbackWrap struct {
+	run      CommandFunc
+	fallback CommandFunc
+}
+
+func (c CommandFuncFallbackWrap) Fallback() (interface{}, error) {
+	return c.fallback()
+}
+
+func (c CommandFuncFallbackWrap) Run() (interface{}, error) {
+	return c.run()
+}
+
+func NewCommandFunc(name string, group string, commandFunc CommandFunc) *Command {
+	command := CommandFuncWrap{commandFunc}
+	executor := NewExecutor(name, group, command, CommandOptionsDefaults())
+	return &Command{Interface: command, Executor: executor}
+}
+func NewCommandFuncFallback(name string, group string, commandFunc CommandFunc, fallbackFunc CommandFunc) *Command {
+	command := CommandFuncFallbackWrap{
+		run:      commandFunc,
+		fallback: fallbackFunc,
+	}
+	executor := NewExecutor(name, group, command, CommandOptionsDefaults())
+	return &Command{Interface: command, Executor: executor}
 }
