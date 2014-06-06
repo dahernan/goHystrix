@@ -12,7 +12,6 @@ How to use
 ```go
 type Interface interface {
 	Run() (interface{}, error)
-	Timeout() time.Duration
 }
 ```
 
@@ -36,12 +35,6 @@ import (
 
 type MyStringCommand struct {
 	message string
-}
-
-
-// timeout for the command Run
-func (c *MyStringCommand) Timeout() time.Duration {
-	return 3 * time.Millisecond
 }
 
 // This is the normal method to execute (circuit is close) 
@@ -89,10 +82,11 @@ func TestString(t *testing.T) {
 
 ### Default circuit values when you create a command
 ```
-errorPercetageThreshold - 50.0 - If (number_of_errors / total_calls * 100) > 50.0 the circuit will be open
-minimumNumberOfRequest - if total_calls < 20 the circuit will be close
-numberOfSecondsToStore - 20 seconds (for health counts you only evaluate the last 20 seconds of calls)
-numberOfSamplesToStore - 50 values (you store the duration of 50 successful calls using reservoir sampling)
+ErrorPercetageThreshold - 50.0 - If (number_of_errors / total_calls * 100) > 50.0 the circuit will be open
+MinimumNumberOfRequest - if total_calls < 20 the circuit will be close
+NumberOfSecondsToStore - 20 seconds (for health counts you only evaluate the last 20 seconds of calls)
+NumberOfSamplesToStore - 50 values (you store the duration of 50 successful calls using reservoir sampling)
+Timeout - 2 * time.Seconds
 ```
 
 ### You can customize the default values when you create the command
@@ -102,11 +96,13 @@ numberOfSamplesToStore - 50 values (you store the duration of 50 successful call
 // MinimumNumberOfRequest - 3
 // NumberOfSecondsToStore - 5
 // NumberOfSamplesToStore - 10
+// Timeout - 10 * time.Second
 goHystrix.NewCommandWithOptions("commandName", "commandGroup", &MyStringCommand{"helloooooooo"}, goHystrix.CommandOptions{
 		ErrorsThreshold:        60.0,
 		MinimumNumberOfRequest: 3,
 		NumberOfSecondsToStore: 5,
 		NumberOfSamplesToStore: 10,
+		Timeout:                10 * time.Second,
 	})
 
 ```

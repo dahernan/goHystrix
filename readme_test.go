@@ -11,10 +11,6 @@ type MyStringCommand struct {
 	message string
 }
 
-func (c *MyStringCommand) Timeout() time.Duration {
-	return 3 * time.Millisecond
-}
-
 func (c *MyStringCommand) Run() (interface{}, error) {
 	return c.message, nil
 }
@@ -60,6 +56,7 @@ func TestStringWithOptions(t *testing.T) {
 		MinimumNumberOfRequest: 3,
 		NumberOfSecondsToStore: 5,
 		NumberOfSamplesToStore: 10,
+		Timeout:                3 * time.Second,
 	})
 	value, err := command.Execute()
 

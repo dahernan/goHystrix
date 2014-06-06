@@ -9,7 +9,6 @@ import (
 
 type Interface interface {
 	Run() (interface{}, error)
-	Timeout() time.Duration
 }
 
 type FallbackInterface interface {
@@ -25,6 +24,7 @@ type Command struct {
 type Executor struct {
 	group   string
 	name    string
+	timeout time.Duration
 	command Interface
 	circuit *CircuitBreaker
 }
@@ -41,11 +41,13 @@ type CommandError struct {
 // MinimumNumberOfRequest - if total_calls < minimumNumberOfRequest the circuit will be close
 // NumberOfSecondsToStore - Is the number of seconds to count the stats, for example 10 stores just the last 10 seconds of calls
 // NumberOfSamplesToStore - Is the number of samples to store for calculate the stats, greater means more precision to get Mean, Max, Min...
+// Timeout - the timeout for the command
 type CommandOptions struct {
 	ErrorsThreshold        float64
 	MinimumNumberOfRequest int64
 	NumberOfSecondsToStore int
 	NumberOfSamplesToStore int
+	Timeout                time.Duration
 }
 
 // CommandOptionsDefaults
@@ -53,34 +55,38 @@ type CommandOptions struct {
 // MinimumNumberOfRequest - if total_calls < 20 the circuit will be close
 // NumberOfSecondsToStore - 20 seconds
 // NumberOfSamplesToStore - 50 values
+// Timeout - 2.Seconds
 func CommandOptionsDefaults() CommandOptions {
 	return CommandOptions{
 		ErrorsThreshold:        50.0,
 		MinimumNumberOfRequest: 20,
 		NumberOfSecondsToStore: 20,
 		NumberOfSamplesToStore: 20,
+		Timeout:                2 * time.Second,
 	}
 
 }
 
 // NewCommand- create a new command with the default values
 func NewCommand(name string, group string, command Interface) *Command {
-	executor := NewExecutor(name, group, command)
+	executor := NewExecutor(name, group, command, CommandOptionsDefaults())
 	return &Command{Interface: command, Executor: executor}
 }
 
 func NewCommandWithOptions(name string, group string, command Interface, options CommandOptions) *Command {
-	executor := NewExecutorWithOptions(name, group, command, options)
+	executor := NewExecutor(name, group, command, options)
 	return &Command{Interface: command, Executor: executor}
 }
 
-func NewExecutor(name string, group string, command Interface) *Executor {
-	return NewExecutorWithOptions(name, group, command, CommandOptionsDefaults())
-}
-
-func NewExecutorWithOptions(name string, group string, command Interface, options CommandOptions) *Executor {
+func NewExecutor(name string, group string, command Interface, options CommandOptions) *Executor {
 	circuit := NewCircuit(group, name, options)
-	return &Executor{group: group, name: name, command: command, circuit: circuit}
+	return &Executor{
+		group:   group,
+		name:    name,
+		timeout: options.Timeout,
+		command: command,
+		circuit: circuit,
+	}
 }
 
 func (ex *Executor) doExecute() (interface{}, error) {
@@ -111,9 +117,9 @@ func (ex *Executor) doExecute() (interface{}, error) {
 	case err := <-errorChan:
 		ex.Metric().Fail()
 		return nil, err
-	case <-time.After(ex.command.Timeout()):
+	case <-time.After(ex.timeout):
 		ex.Metric().Timeout()
-		return nil, fmt.Errorf("error: Timeout (%s), executing command %s:%s", ex.command.Timeout(), ex.group, ex.name)
+		return nil, fmt.Errorf("error: Timeout (%s), executing command %s:%s", ex.timeout, ex.group, ex.name)
 	}
 
 }

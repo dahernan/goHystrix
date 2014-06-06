@@ -14,7 +14,6 @@ type ResultCommand struct {
 	shouldPanic bool
 }
 
-func (rc *ResultCommand) Timeout() time.Duration { return 60 * time.Second }
 func (rc *ResultCommand) Run() (interface{}, error) {
 	if rc.shouldPanic {
 		panic("I must panic!")
@@ -28,6 +27,7 @@ func CommandOptionsForTest() CommandOptions {
 		MinimumNumberOfRequest: 3,
 		NumberOfSecondsToStore: 5,
 		NumberOfSamplesToStore: 10,
+		Timeout:                3 * time.Millisecond,
 	}
 
 }
@@ -87,7 +87,6 @@ type NoFallbackCommand struct {
 	state string
 }
 
-func (cmd *NoFallbackCommand) Timeout() time.Duration { return 3 * time.Second }
 func (cmd *NoFallbackCommand) Run() (interface{}, error) {
 	return "", fmt.Errorf(cmd.state)
 }
@@ -138,10 +137,6 @@ func NewStringCommand(state string, fallbackState string) *Command {
 	command.fallbackState = fallbackState
 
 	return NewCommandWithOptions("testCommand", "testGroup", command, CommandOptionsForTest())
-}
-
-func (c *StringCommand) Timeout() time.Duration {
-	return 3 * time.Millisecond
 }
 
 func (c *StringCommand) Run() (interface{}, error) {
