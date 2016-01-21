@@ -3,6 +3,8 @@ Implementation in Go (aka golang) of some of the stability patterns, like Circui
 * Inspired by Nexflix Hystrix https://github.com/Netflix/Hystrix
 * And the book Release it! http://www.amazon.co.uk/Release-Production-Ready-Software-Pragmatic-Programmers-ebook/dp/B00A32NXZO/
 
+You can also check [breaker](https://github.com/dahernan/breaker) my other implementaion of the Circuit Breaker, simpler and with not dependencies: https://github.com/dahernan/breaker
+
 
 How to use
 ----------
